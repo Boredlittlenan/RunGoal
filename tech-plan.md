@@ -22,6 +22,7 @@
 | 数据库 | PostgreSQL | 可靠、功能丰富，JSON 列支持灵活扩展 |
 | 认证 | JWT (access + refresh token) | 无状态，H5 友好 |
 | 地图 | 第一期不做，预留接口 | 后续接入高德 JS SDK 或 Mapbox GL |
+| 后台管理 | Ant Design 5 + Axios | 后台标配组件库，开箱即用，和 C 端共用后端 API |
 
 ---
 
@@ -136,7 +137,7 @@
 ```
 sport-app/
 ├── apps/
-│   ├── web/                    # 前端 H5 应用
+│   ├── web/                    # C 端 H5 应用
 │   │   ├── src/
 │   │   │   ├── components/     # 通用 UI 组件
 │   │   │   ├── features/       # 功能模块
@@ -158,13 +159,39 @@ sport-app/
 │   │   ├── vite.config.ts
 │   │   └── package.json
 │   │
-│   └── server/                 # 后端 API 服务
+│   ├── admin/                  # 后台管理系统
+│   │   ├── src/
+│   │   │   ├── components/     # AdminLayout（侧边栏+内容区）
+│   │   │   ├── pages/          # 页面
+│   │   │   │   ├── LoginPage         # 管理员登录
+│   │   │   │   ├── DashboardPage     # 仪表盘
+│   │   │   │   ├── UsersPage         # 用户列表
+│   │   │   │   ├── UserDetailPage    # 用户详情
+│   │   │   │   ├── RunsPage          # 跑步记录列表
+│   │   │   │   ├── RunDetailPage     # 记录详情
+│   │   │   │   ├── GoalsPage         # 目标管理
+│   │   │   │   ├── AchievementsPage  # 成就统计
+│   │   │   │   └── ChallengesPage    # 挑战管理
+│   │   │   ├── lib/            # API 客户端（axios 封装）
+│   │   │   ├── App.tsx
+│   │   │   └── main.tsx
+│   │   ├── vite.config.ts
+│   │   └── package.json
+│   │
+│   └── server/                 # 后端 API 服务（C 端 + Admin 共用）
 │       ├── src/
-│       │   ├── routes/         # 路由定义
-│       │   ├── controllers/    # 请求处理
+│       │   ├── routes/
+│       │   │   ├── auth.ts, run.ts, goal.ts ...     # C 端路由
+│       │   │   ├── adminAuth.ts                     # 管理员认证
+│       │   │   ├── adminDashboard.ts                # 仪表盘数据
+│       │   │   ├── adminUsers.ts, adminRuns.ts ...  # Admin CRUD
+│       │   ├── controllers/
 │       │   ├── services/       # 业务逻辑（含成就检测引擎）
-│       │   ├── middleware/     # 认证、错误处理等
-│       │   ├── prisma/         # 数据库 schema 和迁移
+│       │   ├── middleware/
+│       │   │   ├── auth.ts          # C 端 JWT 认证
+│       │   │   ├── adminAuth.ts     # Admin JWT 认证（独立密钥）
+│       │   │   └── errorHandler.ts
+│       │   ├── prisma/
 │       │   └── app.ts
 │       ├── package.json
 │       └── tsconfig.json
@@ -280,6 +307,43 @@ model Challenge {
 
   @@index([userId, status])
 }
+
+// ─── Admin 管理后台 ───
+
+model Admin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  nickname     String
+  role         String   @default("admin")   // superadmin / admin / viewer
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  status    String   @default("draft")      // draft / published / archived
+  publishAt DateTime?
+  expireAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OperationLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String                          // 操作类型
+  target    String?                         // 操作对象描述
+  detail    Json?                           // 操作详情
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([adminId, createdAt])
+}
 ```
 
 ---
@@ -323,6 +387,25 @@ GET    /api/stats/monthly         月统计
 
 PUT    /api/user/profile          更新个人资料
 PUT    /api/user/theme            更新主题偏好
+
+# ─── Admin 后台管理 API ───
+
+POST   /api/admin/auth/login      管理员登录
+GET    /api/admin/auth/me          获取管理员信息
+
+GET    /api/admin/dashboard       仪表盘汇总数据
+GET    /api/admin/users           用户列表（分页+搜索）
+GET    /api/admin/users/:id       用户详情（含跑步/目标/成就/挑战）
+PUT    /api/admin/users/:id       编辑用户资料
+
+GET    /api/admin/runs            全量跑步记录（管理员视角）
+GET    /api/admin/runs/:id        记录详情（含 GPS 轨迹）
+DELETE /api/admin/runs/:id        删除记录
+
+GET    /api/admin/goals           全量目标列表
+GET    /api/admin/achievements    成就解锁统计（每个成就的解锁人数/解锁率）
+GET    /api/admin/achievements/stats  成就概览数据
+GET    /api/admin/challenges      全量挑战列表
 ```
 
 **关键：POST /api/runs 的联动逻辑**
@@ -410,14 +493,20 @@ navigator.geolocation.watchPosition() 持续采集坐标
 ```
 自有服务器部署建议：
 
-前端 (web)：
+C 端前端 (apps/web)：
   → Vite 构建静态产物
   → Nginx 托管静态文件 + SPA 路由 fallback
 
-后端 (server)：
+后台管理 (apps/admin)：
+  → Vite 构建静态产物
+  → Nginx 配置子路径 /admin 或独立端口
+  → 与 C 端共用后端 API，通过 /api/admin/* 路由区分
+
+后端 (apps/server)：
   → PM2 管理 Node.js 进程
   → Nginx 反向代理 /api → Node
   → PostgreSQL 直接装在服务器或用云数据库
+  → Admin 和 C 端使用独立的 JWT 密钥，互不干扰
 
 HTTPS：
   → Let's Encrypt 免费证书 + certbot 自动续期
@@ -437,9 +526,10 @@ HTTPS：
 | M5 | 数据可视化（仪表盘 + 图表） | 1-2 周 |
 | M6 | GPS 实时追踪 | 1-2 周 |
 | M7 | 亮暗主题 + UI 打磨 + 移动端适配 + 成就解锁动效 | 1-2 周 |
-| M8 | 部署上线 + 性能优化 | 0.5-1 周 |
+| M8 | 后台管理系统（仪表盘 + 用户/记录/成就/挑战管理） | 1-2 周 |
+| M9 | 部署上线 + 性能优化 | 0.5-1 周 |
 
-总计约 7-11 周，一个人开发的话按自己节奏来就行。
+总计约 8-13 周，一个人开发的话按自己节奏来就行。
 
 ---
 

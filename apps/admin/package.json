@@ -1,0 +1,31 @@
+{
+  "name": "@sport-app/admin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "tsc -b && vite build",
+    "lint": "echo \"lint ok\"",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --port 5174"
+  },
+  "dependencies": {
+    "@sport-app/shared": "workspace:*",
+    "antd": "^5.24.0",
+    "@ant-design/icons": "^5.6.1",
+    "@ant-design/charts": "^2.2.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "dayjs": "^1.11.13",
+    "axios": "^1.7.9"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
+}

@@ -105,3 +105,40 @@ model Challenge {
 
   @@index([userId, status])
 }
+
+// ─── Admin 管理后台 ───
+
+model Admin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  nickname     String
+  role         String   @default("admin")
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  content   String
+  status    String    @default("draft")
+  publishAt DateTime?
+  expireAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model OperationLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  target    String?
+  detail    Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([adminId, createdAt])
+}

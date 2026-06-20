@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import Layout from '@/components/Layout';
+import AuthGuard from '@/components/AuthGuard';
 import HomePage from '@/pages/HomePage';
 import RunListPage from '@/pages/RunListPage';
 import RunRecordPage from '@/pages/RunRecordPage';
@@ -11,21 +12,33 @@ import StatsPage from '@/pages/StatsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import LoginPage from '@/pages/LoginPage';
 import { useThemeStore } from '@/stores/useThemeStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 export default function App() {
   const { theme } = useThemeStore();
+  const { isLoggedIn, fetchUser } = useAuthStore();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (isLoggedIn) fetchUser();
+  }, []);
 
   return (
     <Routes>
       {/* 登录页不需要底部导航 */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* 主布局带底部导航 */}
-      <Route element={<Layout />}>
+      {/* 需要登录的页面 */}
+      <Route
+        element={
+          <AuthGuard>
+            <Layout />
+          </AuthGuard>
+        }
+      >
         <Route path="/" element={<HomePage />} />
         <Route path="/runs" element={<RunListPage />} />
         <Route path="/runs/record" element={<RunRecordPage />} />

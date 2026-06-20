@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '@/lib/api';
 
 export default function RunRecordPage() {
   const navigate = useNavigate();
@@ -11,11 +12,36 @@ export default function RunRecordPage() {
     note: '',
     weather: '',
   });
+  const [saving, setSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: 调用 API 保存记录
-    navigate('/runs');
+    setSaving(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const distanceKm = parseFloat(form.distance);
+      const durationSeconds = Math.round(parseFloat(form.duration) * 60);
+
+      await api.post('/runs', {
+        distance: distanceKm,
+        duration: durationSeconds,
+        source: 'manual',
+        startedAt: new Date(form.date).toISOString(),
+        feeling: form.feeling,
+        note: form.note || undefined,
+      });
+
+      setSuccessMsg('保存成功！');
+      setTimeout(() => navigate('/runs'), 800);
+    } catch (err: any) {
+      const msg = err?.message || '保存失败，请重试';
+      setErrorMsg(msg);
+      setSaving(false);
+    }
   };
 
   return (
@@ -115,8 +141,27 @@ export default function RunRecordPage() {
           />
         </div>
 
-        <button type="submit" className="btn-primary w-full">
-          保存记录
+        {/* Success message */}
+        {successMsg && (
+          <div className="text-center text-sm py-2 rounded-lg" style={{ backgroundColor: '#e8f5e9', color: '#2e7d32' }}>
+            {successMsg}
+          </div>
+        )}
+
+        {/* Error message */}
+        {errorMsg && (
+          <div className="text-center text-sm py-2 rounded-lg" style={{ backgroundColor: '#fdecea', color: '#c62828' }}>
+            {errorMsg}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="btn-primary w-full"
+          disabled={saving || !!successMsg}
+          style={saving || successMsg ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+        >
+          {saving ? '保存中...' : successMsg ? '已保存' : '保存记录'}
         </button>
       </form>
     </div>

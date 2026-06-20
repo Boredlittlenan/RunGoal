@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '@/lib/api';
 
-type GpsStatus = 'idle' | 'running' | 'paused';
+type GpsStatus = 'idle' | 'running' | 'paused' | 'saving';
 
 export default function GpsRunPage() {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ export default function GpsRunPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchRef = useRef<number | null>(null);
   const lastPointRef = useRef<{ lat: number; lng: number } | null>(null);
+  const startTimeRef = useRef<Date>(new Date());
+  const trackPointsRef = useRef<Array<{ lat: number; lng: number; timestamp: number }>>([]);
 
   // Haversine 公式计算两点距离（米）
   const haversine = useCallback(
@@ -35,6 +38,8 @@ export default function GpsRunPage() {
     }
 
     setStatus('running');
+    startTimeRef.current = new Date();
+    trackPointsRef.current = [];
 
     // 计时器
     timerRef.current = setInterval(() => {
@@ -55,6 +60,7 @@ export default function GpsRunPage() {
             setDistance((prev) => prev + dist / 1000);
           }
         }
+        trackPointsRef.current.push({ lat, lng, timestamp: Date.now() });
         lastPointRef.current = { lat, lng };
       },
       (err) => {
@@ -87,12 +93,32 @@ export default function GpsRunPage() {
     startTracking();
   }, [startTracking]);
 
-  const stopTracking = useCallback(() => {
+  const stopTracking = useCallback(async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
-    // TODO: 保存跑步记录到服务端
-    navigate('/runs');
-  }, [navigate]);
+
+    if (distance < 0.01 && duration < 10) {
+      // 太短的记录直接丢弃
+      navigate('/runs');
+      return;
+    }
+
+    setStatus('saving');
+    try {
+      await api.post('/runs', {
+        source: 'gps',
+        distance: Math.round(distance * 100) / 100, // km
+        duration,
+        startedAt: startTimeRef.current.toISOString(),
+        endedAt: new Date().toISOString(),
+        trackPoints: trackPointsRef.current.length > 0 ? JSON.stringify(trackPointsRef.current) : null,
+      });
+      navigate('/runs');
+    } catch {
+      alert('保存失败，请检查网络连接后重试');
+      setStatus('paused');
+    }
+  }, [navigate, distance, duration]);
 
   const formatTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -185,6 +211,11 @@ export default function GpsRunPage() {
               结束
             </button>
           </>
+        )}
+        {status === 'saving' && (
+          <button className="btn-primary text-lg px-12 py-4" disabled>
+            保存中...
+          </button>
         )}
       </div>
     </div>

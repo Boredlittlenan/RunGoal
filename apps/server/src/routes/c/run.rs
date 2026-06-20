@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use chrono::Utc;
@@ -10,6 +10,10 @@ use serde_json::json;
 use crate::error::AppError;
 use crate::middleware::auth::{AppState, AuthUser};
 use crate::models::run::{CreateRunRequest, Run, RunListQuery};
+
+// Shared SELECT columns (including archivedAt)
+const RUN_COLUMNS: &str = r#"id, "userId", distance, duration, "avgPace", source, "trackPoints",
+    calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt", "archivedAt""#;
 
 // ---------------------------------------------------------------------------
 // Response helpers
@@ -34,6 +38,9 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_runs).post(create_run))
         .route("/{id}", get(get_run).put(update_run).delete(delete_run))
+        .route("/{id}/archive", post(archive_run))
+        .route("/{id}/restore", post(restore_run))
+        .route("/cleanup", post(cleanup_archived))
 }
 
 // ---------------------------------------------------------------------------
@@ -49,27 +56,52 @@ async fn list_runs(
     let page_size = query.page_size.unwrap_or(20).clamp(1, 100);
     let offset = (page - 1) * page_size;
 
-    let total: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(*) FROM "Run" WHERE "userId" = $1"#,
-    )
-    .bind(&auth.user_id)
-    .fetch_one(&state.pool)
-    .await?;
+    // archived=true → show only archived; archived=false/None → show only active
+    let show_archived = query.archived.unwrap_or(false);
 
-    let runs = sqlx::query_as::<_, Run>(
-        r#"
-        SELECT id, "userId", distance, duration, "avgPace", source, "trackPoints",
-               calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt"
-        FROM "Run"
-        WHERE "userId" = $1
-        ORDER BY "startedAt" DESC
-        LIMIT $2 OFFSET $3
-        "#,
-    )
+    let total: i64 = if show_archived {
+        sqlx::query_scalar(
+            r#"SELECT COUNT(*) FROM "Run" WHERE "userId" = $1 AND "archivedAt" IS NOT NULL"#,
+        )
+        .bind(&auth.user_id)
+        .fetch_one(&state.pool)
+        .await?
+    } else {
+        sqlx::query_scalar(
+            r#"SELECT COUNT(*) FROM "Run" WHERE "userId" = $1 AND "archivedAt" IS NULL"#,
+        )
+        .bind(&auth.user_id)
+        .fetch_one(&state.pool)
+        .await?
+    };
+
+    let runs = if show_archived {
+        sqlx::query_as::<_, Run>(&format!(
+            r#"SELECT {} FROM "Run"
+               WHERE "userId" = $1 AND "archivedAt" IS NOT NULL
+               ORDER BY "archivedAt" DESC LIMIT $2 OFFSET $3"#,
+            RUN_COLUMNS
+        ))
+    } else {
+        sqlx::query_as::<_, Run>(&format!(
+            r#"SELECT {} FROM "Run"
+               WHERE "userId" = $1 AND "archivedAt" IS NULL
+               ORDER BY "startedAt" DESC LIMIT $2 OFFSET $3"#,
+            RUN_COLUMNS
+        ))
+    }
     .bind(&auth.user_id)
     .bind(page_size)
     .bind(offset)
     .fetch_all(&state.pool)
+    .await?;
+
+    // Count archived (for badge display)
+    let archived_count: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM "Run" WHERE "userId" = $1 AND "archivedAt" IS NOT NULL"#,
+    )
+    .bind(&auth.user_id)
+    .fetch_one(&state.pool)
     .await?;
 
     let total_pages = if total == 0 { 0 } else { (total + page_size - 1) / page_size };
@@ -82,6 +114,7 @@ async fn list_runs(
             "page": page,
             "pageSize": page_size,
             "totalPages": total_pages,
+            "archivedCount": archived_count,
         },
     })))
 }
@@ -102,7 +135,6 @@ async fn create_run(
         return Err(AppError::BadRequest("Duration must be positive".into()));
     }
 
-    // 1. Calculate avgPace (min/km)
     let avg_pace = if body.distance > 0.0 {
         Some((body.duration as f64) / 60.0 / body.distance)
     } else {
@@ -113,16 +145,15 @@ async fn create_run(
     let run_id = ulid::Ulid::new().to_string();
     let now = Utc::now().naive_utc();
 
-    // 2. Insert the run record
-    let run = sqlx::query_as::<_, Run>(
+    let run = sqlx::query_as::<_, Run>(&format!(
         r#"
         INSERT INTO "Run" (id, "userId", distance, duration, "avgPace", source, "trackPoints",
-                           calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
-        RETURNING id, "userId", distance, duration, "avgPace", source, "trackPoints",
-                  calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt"
+                           calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt", "archivedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14, NULL)
+        RETURNING {}
         "#,
-    )
+        RUN_COLUMNS
+    ))
     .bind(&run_id)
     .bind(&auth.user_id)
     .bind(body.distance)
@@ -140,7 +171,7 @@ async fn create_run(
     .fetch_one(&state.pool)
     .await?;
 
-    // 3. Compute updated user stats
+    // 3. Compute updated user stats (exclude archived)
     let user_stats =
         crate::services::stats::compute_user_stats(&state.pool, &auth.user_id).await?;
 
@@ -152,7 +183,7 @@ async fn create_run(
     .fetch_all(&state.pool)
     .await?;
 
-    // 5. Check achievements — returns newly unlocked definitions
+    // 5. Check achievements
     let newly_unlocked =
         crate::services::achievement::check_achievements(&user_stats, &existing_keys);
 
@@ -246,17 +277,11 @@ async fn create_run(
 
     for (goal_id, goal_type, unit) in &active_goals {
         let value: Option<f64> = match (goal_type.as_str(), unit.as_str()) {
-            // 累计型 (km) — 累加每次跑步距离
             ("cumulative", "km") => Some(run.distance),
-            // 累计型 (min) — 累加每次跑步时长
             ("cumulative", "min") => Some(run.duration as f64 / 60.0),
-            // 频次型 — 每次跑步计 1 次
             ("frequency", _) => Some(1.0),
-            // 距离型 (km) — 取单次最大距离
             ("distance", "km") => Some(run.distance),
-            // 配速型 (min/km) — 取单次配速（越小越好，前端取 min 判断）
             ("pace", _) if run.avg_pace.is_some() => run.avg_pace,
-            // 旧版兼容
             ("run_count", _) => Some(1.0),
             ("duration", "min") => Some(run.duration as f64 / 60.0),
             _ => None,
@@ -278,7 +303,6 @@ async fn create_run(
         }
     }
 
-    // 9. Return composite response
     Ok(Json(json!({
         "success": true,
         "data": {
@@ -298,14 +322,10 @@ async fn get_run(
     auth: AuthUser,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let run = sqlx::query_as::<_, Run>(
-        r#"
-        SELECT id, "userId", distance, duration, "avgPace", source, "trackPoints",
-               calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt"
-        FROM "Run"
-        WHERE id = $1 AND "userId" = $2
-        "#,
-    )
+    let run = sqlx::query_as::<_, Run>(&format!(
+        r#"SELECT {} FROM "Run" WHERE id = $1 AND "userId" = $2"#,
+        RUN_COLUMNS
+    ))
     .bind(&id)
     .bind(&auth.user_id)
     .fetch_optional(&state.pool)
@@ -343,22 +363,16 @@ async fn update_run(
     Path(id): Path<String>,
     Json(body): Json<UpdateRunRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    // Fetch existing run (ownership check)
-    let existing = sqlx::query_as::<_, Run>(
-        r#"
-        SELECT id, "userId", distance, duration, "avgPace", source, "trackPoints",
-               calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt"
-        FROM "Run"
-        WHERE id = $1 AND "userId" = $2
-        "#,
-    )
+    let existing = sqlx::query_as::<_, Run>(&format!(
+        r#"SELECT {} FROM "Run" WHERE id = $1 AND "userId" = $2"#,
+        RUN_COLUMNS
+    ))
     .bind(&id)
     .bind(&auth.user_id)
     .fetch_optional(&state.pool)
     .await?
     .ok_or_else(|| AppError::NotFound("Run not found".into()))?;
 
-    // Merge fields
     let distance = body.distance.unwrap_or(existing.distance);
     let duration = body.duration.unwrap_or(existing.duration);
     let feeling = body.feeling.or(existing.feeling);
@@ -370,7 +384,6 @@ async fn update_run(
     let calories = body.calories.or(existing.calories);
     let source = body.source.unwrap_or(existing.source);
 
-    // Recalculate avgPace
     let avg_pace = if distance > 0.0 {
         Some((duration as f64) / 60.0 / distance)
     } else {
@@ -379,17 +392,17 @@ async fn update_run(
 
     let now = Utc::now().naive_utc();
 
-    let run = sqlx::query_as::<_, Run>(
+    let run = sqlx::query_as::<_, Run>(&format!(
         r#"
         UPDATE "Run"
         SET distance = $3, duration = $4, "avgPace" = $5, source = $6, "trackPoints" = $7,
             calories = $8, feeling = $9, note = $10, weather = $11,
             "startedAt" = $12, "endedAt" = $13, "updatedAt" = $14
         WHERE id = $1 AND "userId" = $2
-        RETURNING id, "userId", distance, duration, "avgPace", source, "trackPoints",
-                  calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt"
+        RETURNING {}
         "#,
-    )
+        RUN_COLUMNS
+    ))
     .bind(&id)
     .bind(&auth.user_id)
     .bind(distance)
@@ -414,7 +427,7 @@ async fn update_run(
 }
 
 // ---------------------------------------------------------------------------
-// DELETE /:id — delete run
+// DELETE /:id — permanently delete run
 // ---------------------------------------------------------------------------
 
 async fn delete_run(
@@ -422,6 +435,12 @@ async fn delete_run(
     auth: AuthUser,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    // Clean up related records first
+    sqlx::query(r#"DELETE FROM "GoalRecord" WHERE "runId" = $1"#)
+        .bind(&id)
+        .execute(&state.pool)
+        .await?;
+
     let result = sqlx::query(r#"DELETE FROM "Run" WHERE id = $1 AND "userId" = $2"#)
         .bind(&id)
         .bind(&auth.user_id)
@@ -435,5 +454,153 @@ async fn delete_run(
     Ok(Json(json!({
         "success": true,
         "data": null,
+    })))
+}
+
+// ---------------------------------------------------------------------------
+// POST /:id/archive — soft-delete (archive) a run
+// ---------------------------------------------------------------------------
+
+async fn archive_run(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let now = Utc::now().naive_utc();
+
+    let result = sqlx::query(
+        r#"UPDATE "Run" SET "archivedAt" = $3, "updatedAt" = $3
+           WHERE id = $1 AND "userId" = $2 AND "archivedAt" IS NULL"#,
+    )
+    .bind(&id)
+    .bind(&auth.user_id)
+    .bind(now)
+    .execute(&state.pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Run not found or already archived".into()));
+    }
+
+    // Remove related GoalRecords so archived runs don't count toward goals
+    sqlx::query(r#"DELETE FROM "GoalRecord" WHERE "runId" = $1"#)
+        .bind(&id)
+        .execute(&state.pool)
+        .await?;
+
+    Ok(Json(json!({
+        "success": true,
+        "data": null,
+    })))
+}
+
+// ---------------------------------------------------------------------------
+// POST /:id/restore — restore an archived run
+// ---------------------------------------------------------------------------
+
+async fn restore_run(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let now = Utc::now().naive_utc();
+
+    let run = sqlx::query_as::<_, Run>(&format!(
+        r#"
+        UPDATE "Run" SET "archivedAt" = NULL, "updatedAt" = $3
+        WHERE id = $1 AND "userId" = $2 AND "archivedAt" IS NOT NULL
+        RETURNING {}
+        "#,
+        RUN_COLUMNS
+    ))
+    .bind(&id)
+    .bind(&auth.user_id)
+    .bind(now)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Run not found or not archived".into()))?;
+
+    // Re-create GoalRecord for active goals
+    let active_goals: Vec<(String, String, String)> = sqlx::query_as(
+        r#"SELECT id, type, unit FROM "Goal"
+           WHERE "userId" = $1 AND "isActive" = true"#,
+    )
+    .bind(&auth.user_id)
+    .fetch_all(&state.pool)
+    .await?;
+
+    for (goal_id, goal_type, unit) in &active_goals {
+        let value: Option<f64> = match (goal_type.as_str(), unit.as_str()) {
+            ("cumulative", "km") => Some(run.distance),
+            ("cumulative", "min") => Some(run.duration as f64 / 60.0),
+            ("frequency", _) => Some(1.0),
+            ("distance", "km") => Some(run.distance),
+            ("pace", _) if run.avg_pace.is_some() => run.avg_pace,
+            ("run_count", _) => Some(1.0),
+            ("duration", "min") => Some(run.duration as f64 / 60.0),
+            _ => None,
+        };
+        if let Some(v) = value {
+            let gr_id = ulid::Ulid::new().to_string();
+            sqlx::query(
+                r#"INSERT INTO "GoalRecord" (id, "goalId", "runId", value, "createdAt")
+                   VALUES ($1, $2, $3, $4, $5)
+                   ON CONFLICT ON CONSTRAINT "GoalRecord_goalId_runId_key" DO NOTHING"#,
+            )
+            .bind(&gr_id)
+            .bind(goal_id)
+            .bind(&run.id)
+            .bind(v)
+            .bind(now)
+            .execute(&state.pool)
+            .await?;
+        }
+    }
+
+    Ok(Json(json!({
+        "success": true,
+        "data": run,
+    })))
+}
+
+// ---------------------------------------------------------------------------
+// POST /cleanup — permanently delete archived runs older than 30 days
+// ---------------------------------------------------------------------------
+
+async fn cleanup_archived(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let cutoff = Utc::now().naive_utc() - chrono::Duration::days(30);
+
+    // Get IDs of runs to clean up
+    let run_ids: Vec<String> = sqlx::query_scalar(
+        r#"SELECT id FROM "Run"
+           WHERE "userId" = $1 AND "archivedAt" IS NOT NULL AND "archivedAt" < $2"#,
+    )
+    .bind(&auth.user_id)
+    .bind(cutoff)
+    .fetch_all(&state.pool)
+    .await?;
+
+    if !run_ids.is_empty() {
+        // Clean up GoalRecords
+        sqlx::query(r#"DELETE FROM "GoalRecord" WHERE "runId" = ANY($1)"#)
+            .bind(&run_ids)
+            .execute(&state.pool)
+            .await?;
+
+        // Delete the runs
+        sqlx::query(r#"DELETE FROM "Run" WHERE id = ANY($1)"#)
+            .bind(&run_ids)
+            .execute(&state.pool)
+            .await?;
+    }
+
+    Ok(Json(json!({
+        "success": true,
+        "data": {
+            "deleted": run_ids.len(),
+        },
     })))
 }

@@ -37,7 +37,7 @@ async fn overview(
                COALESCE(SUM(duration), 0)::bigint,
                COUNT(*)::bigint
         FROM "Run"
-        WHERE "userId" = $1
+        WHERE "userId" = $1 AND "archivedAt" IS NULL
         "#,
     )
     .bind(&auth.user_id)
@@ -340,7 +340,7 @@ async fn period_stats(
 
     let agg: (f64, i64, i64) = sqlx::query_as(
         r#"SELECT COALESCE(SUM(distance),0.0)::float8, COALESCE(SUM(duration),0)::bigint, COUNT(*)::bigint
-           FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
+           FROM "Run" WHERE "userId"=$1 AND "archivedAt" IS NULL AND "startedAt">=$2 AND "startedAt"<$3"#,
     )
     .bind(&auth.user_id).bind(start).bind(end)
     .fetch_one(&state.pool).await?;
@@ -349,15 +349,15 @@ async fn period_stats(
     let avg_pace = if total_distance > 0.0 { Some((total_duration as f64)/60.0/total_distance) } else { None };
 
     let best_pace: Option<f64> = sqlx::query_scalar(
-        r#"SELECT MIN("avgPace") FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3 AND distance>=3.0 AND "avgPace" IS NOT NULL"#,
+        r#"SELECT MIN("avgPace") FROM "Run" WHERE "userId"=$1 AND "archivedAt" IS NULL AND "startedAt">=$2 AND "startedAt"<$3 AND distance>=3.0 AND "avgPace" IS NOT NULL"#,
     ).bind(&auth.user_id).bind(start).bind(end).fetch_one(&state.pool).await?;
 
     let max_distance: Option<f64> = sqlx::query_scalar(
-        r#"SELECT MAX(distance) FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
+        r#"SELECT MAX(distance) FROM "Run" WHERE "userId"=$1 AND "archivedAt" IS NULL AND "startedAt">=$2 AND "startedAt"<$3"#,
     ).bind(&auth.user_id).bind(start).bind(end).fetch_one(&state.pool).await?;
 
     let running_days: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(DISTINCT "startedAt"::date) FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
+        r#"SELECT COUNT(DISTINCT "startedAt"::date) FROM "Run" WHERE "userId"=$1 AND "archivedAt" IS NULL AND "startedAt">=$2 AND "startedAt"<$3"#,
     ).bind(&auth.user_id).bind(start).bind(end).fetch_one(&state.pool).await?;
 
     Ok(Json(json!({

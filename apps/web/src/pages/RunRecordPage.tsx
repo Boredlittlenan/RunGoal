@@ -6,7 +6,9 @@ export default function RunRecordPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     distance: '',
-    duration: '',
+    hours: '',
+    minutes: '',
+    seconds: '',
     date: new Date().toISOString().slice(0, 16),
     feeling: 3,
     note: '',
@@ -18,14 +20,20 @@ export default function RunRecordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     setErrorMsg('');
     setSuccessMsg('');
 
-    try {
-      const distanceKm = parseFloat(form.distance);
-      const durationSeconds = Math.round(parseFloat(form.duration) * 60);
+    const distanceKm = parseFloat(form.distance);
+    const h = parseInt(form.hours) || 0;
+    const m = parseInt(form.minutes) || 0;
+    const s = parseInt(form.seconds) || 0;
+    const durationSeconds = h * 3600 + m * 60 + s;
 
+    if (!distanceKm || distanceKm <= 0) { setErrorMsg('请输入有效的跑步距离'); return; }
+    if (durationSeconds <= 0) { setErrorMsg('请输入有效的跑步时长'); return; }
+
+    setSaving(true);
+    try {
       await api.post('/runs', {
         distance: distanceKm,
         duration: durationSeconds,
@@ -38,8 +46,7 @@ export default function RunRecordPage() {
       setSuccessMsg('保存成功！');
       setTimeout(() => navigate('/runs'), 800);
     } catch (err: any) {
-      const msg = err?.error || err?.message || '保存失败，请重试';
-      setErrorMsg(msg);
+      setErrorMsg(err?.error || err?.message || '保存失败，请重试');
       setSaving(false);
     }
   };
@@ -75,20 +82,46 @@ export default function RunRecordPage() {
           />
         </div>
 
-        {/* 时长 */}
+        {/* 时长：时/分/秒 */}
         <div className="space-y-2">
           <label className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            跑步时长 (分钟)
+            跑步时长
           </label>
-          <input
-            type="number"
-            min="1"
-            className="input"
-            placeholder="例如 30"
-            value={form.duration}
-            onChange={(e) => setForm({ ...form, duration: e.target.value })}
-            required
-          />
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              min="0"
+              max="23"
+              className="input text-center"
+              style={{ width: 72 }}
+              placeholder="0"
+              value={form.hours}
+              onChange={(e) => setForm({ ...form, hours: e.target.value })}
+            />
+            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>时</span>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              className="input text-center"
+              style={{ width: 72 }}
+              placeholder="30"
+              value={form.minutes}
+              onChange={(e) => setForm({ ...form, minutes: e.target.value })}
+            />
+            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>分</span>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              className="input text-center"
+              style={{ width: 72 }}
+              placeholder="0"
+              value={form.seconds}
+              onChange={(e) => setForm({ ...form, seconds: e.target.value })}
+            />
+            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>秒</span>
+          </div>
         </div>
 
         {/* 日期时间 */}

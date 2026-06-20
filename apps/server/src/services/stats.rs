@@ -40,7 +40,7 @@ pub async fn compute_user_stats(
 ) -> Result<UserStats, AppError> {
     let rows = sqlx::query_as::<_, RunRow>(
         r#"SELECT distance, duration, "avgPace", "startedAt", weather
-           FROM "Run" WHERE "userId" = $1 ORDER BY "startedAt" ASC"#,
+           FROM "Run" WHERE "userId" = $1 AND "archivedAt" IS NULL ORDER BY "startedAt" ASC"#,
     )
     .bind(user_id)
     .fetch_all(pool)

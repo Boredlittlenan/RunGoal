@@ -38,6 +38,9 @@ pub struct Run {
     #[serde(rename = "updatedAt")]
     #[sqlx(rename = "updatedAt")]
     pub updated_at: NaiveDateTime,
+    #[serde(rename = "archivedAt")]
+    #[sqlx(rename = "archivedAt")]
+    pub archived_at: Option<NaiveDateTime>,
 }
 
 /// Request body for creating a new run.
@@ -62,4 +65,5 @@ pub struct CreateRunRequest {
 pub struct RunListQuery {
     pub page: Option<i64>,
     pub page_size: Option<i64>,
+    pub archived: Option<bool>,
 }

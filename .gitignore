@@ -7,6 +7,7 @@ dist/
 .env
 .env.*
 !.env.example
+!deploy/.env.production
 
 # Prisma
 apps/server/prisma/*.db

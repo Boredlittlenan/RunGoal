@@ -6,6 +6,7 @@ use axum::{
 use chrono::Utc;
 use serde::Serialize;
 use serde_json::json;
+use sqlx::AssertSqlSafe;
 
 use crate::error::AppError;
 use crate::middleware::auth::{AppState, AuthUser};
@@ -76,19 +77,19 @@ async fn list_runs(
     };
 
     let runs = if show_archived {
-        sqlx::query_as::<_, Run>(&format!(
+        sqlx::query_as::<_, Run>(AssertSqlSafe(format!(
             r#"SELECT {} FROM "Run"
                WHERE "userId" = $1 AND "archivedAt" IS NOT NULL
                ORDER BY "archivedAt" DESC LIMIT $2 OFFSET $3"#,
             RUN_COLUMNS
-        ))
+        )))
     } else {
-        sqlx::query_as::<_, Run>(&format!(
+        sqlx::query_as::<_, Run>(AssertSqlSafe(format!(
             r#"SELECT {} FROM "Run"
                WHERE "userId" = $1 AND "archivedAt" IS NULL
                ORDER BY "startedAt" DESC LIMIT $2 OFFSET $3"#,
             RUN_COLUMNS
-        ))
+        )))
     }
     .bind(&auth.user_id)
     .bind(page_size)
@@ -145,7 +146,7 @@ async fn create_run(
     let run_id = ulid::Ulid::new().to_string();
     let now = Utc::now().naive_utc();
 
-    let run = sqlx::query_as::<_, Run>(&format!(
+    let run = sqlx::query_as::<_, Run>(AssertSqlSafe(format!(
         r#"
         INSERT INTO "Run" (id, "userId", distance, duration, "avgPace", source, "trackPoints",
                            calories, feeling, note, weather, "startedAt", "endedAt", "createdAt", "updatedAt", "archivedAt")
@@ -153,7 +154,7 @@ async fn create_run(
         RETURNING {}
         "#,
         RUN_COLUMNS
-    ))
+    )))
     .bind(&run_id)
     .bind(&auth.user_id)
     .bind(body.distance)
@@ -322,10 +323,10 @@ async fn get_run(
     auth: AuthUser,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let run = sqlx::query_as::<_, Run>(&format!(
+    let run = sqlx::query_as::<_, Run>(AssertSqlSafe(format!(
         r#"SELECT {} FROM "Run" WHERE id = $1 AND "userId" = $2"#,
         RUN_COLUMNS
-    ))
+    )))
     .bind(&id)
     .bind(&auth.user_id)
     .fetch_optional(&state.pool)
@@ -363,10 +364,10 @@ async fn update_run(
     Path(id): Path<String>,
     Json(body): Json<UpdateRunRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let existing = sqlx::query_as::<_, Run>(&format!(
+    let existing = sqlx::query_as::<_, Run>(AssertSqlSafe(format!(
         r#"SELECT {} FROM "Run" WHERE id = $1 AND "userId" = $2"#,
         RUN_COLUMNS
-    ))
+    )))
     .bind(&id)
     .bind(&auth.user_id)
     .fetch_optional(&state.pool)
@@ -392,7 +393,7 @@ async fn update_run(
 
     let now = Utc::now().naive_utc();
 
-    let run = sqlx::query_as::<_, Run>(&format!(
+    let run = sqlx::query_as::<_, Run>(AssertSqlSafe(format!(
         r#"
         UPDATE "Run"
         SET distance = $3, duration = $4, "avgPace" = $5, source = $6, "trackPoints" = $7,
@@ -402,7 +403,7 @@ async fn update_run(
         RETURNING {}
         "#,
         RUN_COLUMNS
-    ))
+    )))
     .bind(&id)
     .bind(&auth.user_id)
     .bind(distance)
@@ -505,14 +506,14 @@ async fn restore_run(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let now = Utc::now().naive_utc();
 
-    let run = sqlx::query_as::<_, Run>(&format!(
+    let run = sqlx::query_as::<_, Run>(AssertSqlSafe(format!(
         r#"
         UPDATE "Run" SET "archivedAt" = NULL, "updatedAt" = $3
         WHERE id = $1 AND "userId" = $2 AND "archivedAt" IS NOT NULL
         RETURNING {}
         "#,
         RUN_COLUMNS
-    ))
+    )))
     .bind(&id)
     .bind(&auth.user_id)
     .bind(now)

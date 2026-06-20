@@ -49,4 +49,10 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * 将 Date 转为 NaiveDateTime 兼容的 ISO 字符串（去掉 Z 后缀）。
+ * 后端 chrono::NaiveDateTime 不接受时区后缀。
+ */
+export const toNaiveIso = (d: Date): string => d.toISOString().replace('Z', '');
+
 export default api;

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '@/lib/api';
+import api, { toNaiveIso } from '@/lib/api';
 
 type GpsStatus = 'idle' | 'running' | 'paused' | 'saving';
 
@@ -111,13 +111,14 @@ export default function GpsRunPage() {
         source: 'gps',
         distance: Math.round(distance * 100) / 100, // km
         duration,
-        startedAt: startTimeRef.current?.toISOString() ?? new Date().toISOString(),
-        endedAt: new Date().toISOString(),
-        trackPoints: trackPointsRef.current.length > 0 ? JSON.stringify(trackPointsRef.current) : null,
+        startedAt: startTimeRef.current ? toNaiveIso(startTimeRef.current) : toNaiveIso(new Date()),
+        endedAt: toNaiveIso(new Date()),
+        trackPoints: trackPointsRef.current.length > 0 ? trackPointsRef.current : null,
       });
       navigate('/runs');
-    } catch {
-      alert('保存失败，请检查网络连接后重试');
+    } catch (err: any) {
+      const msg = err?.error || err?.message || '保存失败，请检查网络连接后重试';
+      alert(msg);
       setStatus('paused');
     }
   }, [navigate, distance, duration]);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '@/lib/api';
+import api, { toNaiveIso } from '@/lib/api';
 
 export default function RunRecordPage() {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ export default function RunRecordPage() {
         distance: distanceKm,
         duration: durationSeconds,
         source: 'manual',
-        startedAt: new Date(form.date).toISOString(),
+        startedAt: toNaiveIso(new Date(form.date)),
         feeling: form.feeling,
         note: form.note || undefined,
       });
@@ -38,7 +38,7 @@ export default function RunRecordPage() {
       setSuccessMsg('保存成功！');
       setTimeout(() => navigate('/runs'), 800);
     } catch (err: any) {
-      const msg = err?.message || '保存失败，请重试';
+      const msg = err?.error || err?.message || '保存失败，请重试';
       setErrorMsg(msg);
       setSaving(false);
     }

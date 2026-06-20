@@ -3,7 +3,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use chrono::NaiveDate;
+use chrono::NaiveDateTime;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -37,7 +37,7 @@ struct UserListRow {
     weight: Option<f64>,
     height: Option<f64>,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
     #[sqlx(rename = "runCount")]
     run_count: i64,
 }
@@ -52,9 +52,9 @@ struct UserDetailRow {
     height: Option<f64>,
     theme: String,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
     #[sqlx(rename = "updatedAt")]
-    updated_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::NaiveDateTime,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -70,11 +70,11 @@ struct UserRunRow {
     note: Option<String>,
     weather: Option<String>,
     #[sqlx(rename = "startedAt")]
-    started_at: chrono::DateTime<chrono::Utc>,
+    started_at: chrono::NaiveDateTime,
     #[sqlx(rename = "endedAt")]
-    ended_at: Option<chrono::DateTime<chrono::Utc>>,
+    ended_at: Option<chrono::NaiveDateTime>,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -88,13 +88,13 @@ struct UserGoalRow {
     unit: String,
     period: String,
     #[sqlx(rename = "startDate")]
-    start_date: NaiveDate,
+    start_date: NaiveDateTime,
     #[sqlx(rename = "endDate")]
-    end_date: Option<NaiveDate>,
+    end_date: Option<NaiveDateTime>,
     #[sqlx(rename = "isActive")]
     is_active: bool,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -103,7 +103,7 @@ struct UserAchievementRow {
     #[sqlx(rename = "achievementKey")]
     achievement_key: String,
     #[sqlx(rename = "unlockedAt")]
-    unlocked_at: chrono::DateTime<chrono::Utc>,
+    unlocked_at: chrono::NaiveDateTime,
     #[sqlx(rename = "unlockedByRun")]
     unlocked_by_run: Option<String>,
 }
@@ -119,14 +119,14 @@ struct UserChallengeRow {
     unit: String,
     status: String,
     #[sqlx(rename = "startDate")]
-    start_date: NaiveDate,
+    start_date: NaiveDateTime,
     #[sqlx(rename = "endDate")]
-    end_date: NaiveDate,
+    end_date: NaiveDateTime,
     progress: f64,
     #[sqlx(rename = "completedAt")]
-    completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    completed_at: Option<chrono::NaiveDateTime>,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ async fn list(
                 "avatar": u.avatar,
                 "weight": u.weight,
                 "height": u.height,
-                "createdAt": u.created_at.to_rfc3339(),
+                "createdAt": u.created_at.to_string(),
                 "runCount": u.run_count
             })
         })
@@ -316,8 +316,8 @@ async fn detail(
                 "weight": user.weight,
                 "height": user.height,
                 "theme": user.theme,
-                "createdAt": user.created_at.to_rfc3339(),
-                "updatedAt": user.updated_at.to_rfc3339()
+                "createdAt": user.created_at.to_string(),
+                "updatedAt": user.updated_at.to_string()
             },
             "runs": runs.iter().map(|r| json!({
                 "id": r.id,
@@ -329,9 +329,9 @@ async fn detail(
                 "feeling": r.feeling,
                 "note": r.note,
                 "weather": r.weather,
-                "startedAt": r.started_at.to_rfc3339(),
-                "endedAt": r.ended_at.map(|t| t.to_rfc3339()),
-                "createdAt": r.created_at.to_rfc3339()
+                "startedAt": r.started_at.to_string(),
+                "endedAt": r.ended_at.map(|t| t.to_string()),
+                "createdAt": r.created_at.to_string()
             })).collect::<Vec<_>>(),
             "goals": goals.iter().map(|g| json!({
                 "id": g.id,
@@ -343,12 +343,12 @@ async fn detail(
                 "startDate": g.start_date.to_string(),
                 "endDate": g.end_date.map(|t| t.to_string()),
                 "isActive": g.is_active,
-                "createdAt": g.created_at.to_rfc3339()
+                "createdAt": g.created_at.to_string()
             })).collect::<Vec<_>>(),
             "achievements": achievements.iter().map(|a| json!({
                 "id": a.id,
                 "achievementKey": a.achievement_key,
-                "unlockedAt": a.unlocked_at.to_rfc3339(),
+                "unlockedAt": a.unlocked_at.to_string(),
                 "unlockedByRun": a.unlocked_by_run
             })).collect::<Vec<_>>(),
             "challenges": challenges.iter().map(|c| json!({
@@ -361,8 +361,8 @@ async fn detail(
                 "startDate": c.start_date.to_string(),
                 "endDate": c.end_date.to_string(),
                 "progress": c.progress,
-                "completedAt": c.completed_at.map(|t| t.to_rfc3339()),
-                "createdAt": c.created_at.to_rfc3339()
+                "completedAt": c.completed_at.map(|t| t.to_string()),
+                "createdAt": c.created_at.to_string()
             })).collect::<Vec<_>>()
         }
     }))
@@ -403,8 +403,8 @@ async fn update(
                 "weight": user.weight,
                 "height": user.height,
                 "theme": user.theme,
-                "createdAt": user.created_at.to_rfc3339(),
-                "updatedAt": user.updated_at.to_rfc3339()
+                "createdAt": user.created_at.to_string(),
+                "updatedAt": user.updated_at.to_string()
             }
         })),
         Ok(None) => Json(json!({

@@ -111,7 +111,7 @@ async fn create_run(
 
     let source = body.source.as_deref().unwrap_or("manual");
     let run_id = ulid::Ulid::new().to_string();
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     // 2. Insert the run record
     let run = sqlx::query_as::<_, Run>(
@@ -166,7 +166,7 @@ async fn create_run(
             r#"
             INSERT INTO "UserAchievement" (id, "userId", "achievementKey", "unlockedAt", "unlockedByRun")
             VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT ("userId", "achievementKey") DO NOTHING
+            ON CONFLICT ON CONSTRAINT "UserAchievement_userId_achievementKey_key" DO NOTHING
             "#,
         )
         .bind(&ua_id)
@@ -182,7 +182,7 @@ async fn create_run(
             "name": def.name,
             "description": def.description,
             "rarity": def.rarity,
-            "unlockedAt": now.to_rfc3339(),
+            "unlockedAt": now.to_string(),
         }));
     }
 
@@ -206,7 +206,7 @@ async fn create_run(
         };
         let completed = new_progress >= *target;
 
-        let completed_at_value: Option<chrono::DateTime<Utc>> = if completed { Some(now) } else { None };
+        let completed_at_value: Option<chrono::NaiveDateTime> = if completed { Some(now) } else { None };
 
         sqlx::query(
             r#"
@@ -256,7 +256,7 @@ async fn create_run(
             sqlx::query(
                 r#"INSERT INTO "GoalRecord" (id, "goalId", "runId", value, "createdAt")
                    VALUES ($1, $2, $3, $4, $5)
-                   ON CONFLICT ("goalId", "runId") DO NOTHING"#,
+                   ON CONFLICT ON CONSTRAINT "GoalRecord_goalId_runId_key" DO NOTHING"#,
             )
             .bind(&gr_id)
             .bind(goal_id)
@@ -320,8 +320,8 @@ struct UpdateRunRequest {
     feeling: Option<i32>,
     note: Option<String>,
     weather: Option<String>,
-    started_at: Option<chrono::DateTime<Utc>>,
-    ended_at: Option<chrono::DateTime<Utc>>,
+    started_at: Option<chrono::NaiveDateTime>,
+    ended_at: Option<chrono::NaiveDateTime>,
     track_points: Option<serde_json::Value>,
     calories: Option<f64>,
     source: Option<String>,
@@ -367,7 +367,7 @@ async fn update_run(
         None
     };
 
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let run = sqlx::query_as::<_, Run>(
         r#"

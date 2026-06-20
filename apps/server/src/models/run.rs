@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -11,26 +11,33 @@ use sqlx::FromRow;
 pub struct Run {
     pub id: String,
     #[serde(rename = "userId")]
+    #[sqlx(rename = "userId")]
     pub user_id: String,
     pub distance: f64,
     pub duration: i32,
     #[serde(rename = "avgPace")]
+    #[sqlx(rename = "avgPace")]
     pub avg_pace: Option<f64>,
     pub source: String,
     #[serde(rename = "trackPoints")]
+    #[sqlx(rename = "trackPoints")]
     pub track_points: Option<serde_json::Value>,
     pub calories: Option<f64>,
     pub feeling: Option<i32>,
     pub note: Option<String>,
     pub weather: Option<String>,
     #[serde(rename = "startedAt")]
-    pub started_at: DateTime<Utc>,
+    #[sqlx(rename = "startedAt")]
+    pub started_at: NaiveDateTime,
     #[serde(rename = "endedAt")]
-    pub ended_at: Option<DateTime<Utc>>,
+    #[sqlx(rename = "endedAt")]
+    pub ended_at: Option<NaiveDateTime>,
     #[serde(rename = "createdAt")]
-    pub created_at: DateTime<Utc>,
+    #[sqlx(rename = "createdAt")]
+    pub created_at: NaiveDateTime,
     #[serde(rename = "updatedAt")]
-    pub updated_at: DateTime<Utc>,
+    #[sqlx(rename = "updatedAt")]
+    pub updated_at: NaiveDateTime,
 }
 
 /// Request body for creating a new run.
@@ -45,8 +52,8 @@ pub struct CreateRunRequest {
     pub feeling: Option<i32>,
     pub note: Option<String>,
     pub weather: Option<String>,
-    pub started_at: DateTime<Utc>,
-    pub ended_at: Option<DateTime<Utc>>,
+    pub started_at: NaiveDateTime,
+    pub ended_at: Option<NaiveDateTime>,
 }
 
 /// Query parameters for paginated run listing.

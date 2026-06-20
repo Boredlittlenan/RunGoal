@@ -33,16 +33,16 @@ struct ChallengeRow {
     unit: String,
     status: String,
     #[sqlx(rename = "startDate")]
-    start_date: chrono::NaiveDate,
+    start_date: chrono::NaiveDateTime,
     #[sqlx(rename = "endDate")]
-    end_date: chrono::NaiveDate,
+    end_date: chrono::NaiveDateTime,
     progress: f64,
     #[sqlx(rename = "completedAt")]
-    completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    completed_at: Option<chrono::NaiveDateTime>,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
     #[sqlx(rename = "updatedAt")]
-    updated_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::NaiveDateTime,
     #[sqlx(rename = "userNickname")]
     user_nickname: String,
 }
@@ -129,9 +129,9 @@ async fn list(
                 "startDate": c.start_date.to_string(),
                 "endDate": c.end_date.to_string(),
                 "progress": c.progress,
-                "completedAt": c.completed_at.map(|t| t.to_rfc3339()),
-                "createdAt": c.created_at.to_rfc3339(),
-                "updatedAt": c.updated_at.to_rfc3339(),
+                "completedAt": c.completed_at.map(|t| t.to_string()),
+                "createdAt": c.created_at.to_string(),
+                "updatedAt": c.updated_at.to_string(),
                 "userNickname": c.user_nickname
             })
         })

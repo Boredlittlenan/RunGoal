@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -18,9 +18,9 @@ pub struct User {
     pub password_hash: String,
     pub theme: String,
     #[sqlx(rename = "createdAt")]
-    pub created_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
     #[sqlx(rename = "updatedAt")]
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: NaiveDateTime,
 }
 
 /// A safe, public-facing user representation that omits sensitive fields.
@@ -34,8 +34,8 @@ pub struct UserPublic {
     pub weight: Option<f64>,
     pub height: Option<f64>,
     pub theme: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 impl From<User> for UserPublic {

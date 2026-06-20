@@ -3,7 +3,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use serde_json::json;
 
 use crate::error::AppError;
@@ -22,7 +22,7 @@ async fn achievement_wall(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let unlocked: Vec<(String, DateTime<Utc>)> = sqlx::query_as(
+    let unlocked: Vec<(String, NaiveDateTime)> = sqlx::query_as(
         r#"SELECT "achievementKey", "unlockedAt" FROM "UserAchievement" WHERE "userId" = $1"#,
     )
     .bind(&auth.user_id)
@@ -41,7 +41,7 @@ async fn achievement_wall(
                 "category": def.category,
                 "rarity": def.rarity,
                 "unlocked": record.is_some(),
-                "unlockedAt": record.map(|(_, t)| t.to_rfc3339()),
+                "unlockedAt": record.map(|(_, t)| t.to_string()),
             })
         })
         .collect();
@@ -54,7 +54,7 @@ async fn recent_achievements(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let rows: Vec<(String, DateTime<Utc>, Option<String>)> = sqlx::query_as(
+    let rows: Vec<(String, NaiveDateTime, Option<String>)> = sqlx::query_as(
         r#"SELECT "achievementKey", "unlockedAt", "unlockedByRun"
            FROM "UserAchievement" WHERE "userId" = $1 ORDER BY "unlockedAt" DESC LIMIT 10"#,
     )
@@ -72,7 +72,7 @@ async fn recent_achievements(
                     "description": def.description,
                     "icon": def.icon,
                     "rarity": def.rarity,
-                    "unlockedAt": unlocked_at.to_rfc3339(),
+                    "unlockedAt": unlocked_at.to_string(),
                     "unlockedByRun": unlocked_by_run,
                 })
             })

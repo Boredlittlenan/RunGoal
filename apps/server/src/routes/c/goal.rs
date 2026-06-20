@@ -159,7 +159,7 @@ async fn create_goal(
     }
 
     let id = ulid::Ulid::new().to_string();
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let goal = sqlx::query_as::<_, Goal>(
         r#"
@@ -273,10 +273,10 @@ async fn update_goal(
     let target_value = body.target_value.unwrap_or(existing.target_value);
     let unit = body.unit.as_deref().unwrap_or(&existing.unit);
     let period = body.period.as_deref().unwrap_or(&existing.period);
-    let start_date = body.start_date.unwrap_or(existing.start_date);
-    let end_date = body.end_date.or(existing.end_date);
+    let start_date = body.start_date.map(|d| d.and_hms_opt(0, 0, 0).unwrap()).unwrap_or(existing.start_date);
+    let end_date = body.end_date.map(|d| d.and_hms_opt(0, 0, 0).unwrap()).or(existing.end_date);
     let is_active = body.is_active.unwrap_or(existing.is_active);
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let goal = sqlx::query_as::<_, Goal>(
         r#"

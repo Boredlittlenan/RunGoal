@@ -156,7 +156,7 @@ async fn pace_trend(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let limit = query.limit.unwrap_or(20).clamp(1, 100);
 
-    let rows: Vec<(String, chrono::DateTime<chrono::Utc>, Option<f64>, f64, i32)> = sqlx::query_as(
+    let rows: Vec<(String, chrono::NaiveDateTime, Option<f64>, f64, i32)> = sqlx::query_as(
         r#"
         SELECT id, "startedAt", "avgPace", distance, duration
         FROM "Run"
@@ -338,14 +338,11 @@ async fn period_stats(
         _ => return Err(AppError::BadRequest("Invalid period type".into())),
     };
 
-    let start_utc = chrono::DateTime::<Utc>::from_naive_utc_and_offset(start, Utc);
-    let end_utc = chrono::DateTime::<Utc>::from_naive_utc_and_offset(end, Utc);
-
     let agg: (f64, i64, i64) = sqlx::query_as(
         r#"SELECT COALESCE(SUM(distance),0.0)::float8, COALESCE(SUM(duration),0)::bigint, COUNT(*)::bigint
            FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
     )
-    .bind(&auth.user_id).bind(start_utc).bind(end_utc)
+    .bind(&auth.user_id).bind(start).bind(end)
     .fetch_one(&state.pool).await?;
 
     let (total_distance, total_duration, total_runs) = agg;
@@ -353,15 +350,15 @@ async fn period_stats(
 
     let best_pace: Option<f64> = sqlx::query_scalar(
         r#"SELECT MIN("avgPace") FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3 AND distance>=3.0 AND "avgPace" IS NOT NULL"#,
-    ).bind(&auth.user_id).bind(start_utc).bind(end_utc).fetch_one(&state.pool).await?;
+    ).bind(&auth.user_id).bind(start).bind(end).fetch_one(&state.pool).await?;
 
     let max_distance: Option<f64> = sqlx::query_scalar(
         r#"SELECT MAX(distance) FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
-    ).bind(&auth.user_id).bind(start_utc).bind(end_utc).fetch_one(&state.pool).await?;
+    ).bind(&auth.user_id).bind(start).bind(end).fetch_one(&state.pool).await?;
 
     let running_days: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(DISTINCT "startedAt"::date) FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
-    ).bind(&auth.user_id).bind(start_utc).bind(end_utc).fetch_one(&state.pool).await?;
+    ).bind(&auth.user_id).bind(start).bind(end).fetch_one(&state.pool).await?;
 
     Ok(Json(json!({
         "success": true,

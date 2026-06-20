@@ -30,7 +30,7 @@ struct RunRow {
     #[sqlx(rename = "avgPace")]
     avg_pace: Option<f64>,
     #[sqlx(rename = "startedAt")]
-    started_at: chrono::DateTime<chrono::Utc>,
+    started_at: chrono::NaiveDateTime,
     weather: Option<String>,
 }
 
@@ -66,7 +66,7 @@ pub async fn compute_user_stats(
     // Unique run dates (sorted)
     let mut dates: Vec<chrono::NaiveDate> = rows
         .iter()
-        .map(|r| r.started_at.date_naive())
+        .map(|r| r.started_at.date())
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .collect();
@@ -148,7 +148,7 @@ pub async fn compute_user_stats(
     let month_start = chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap();
 
     for r in &rows {
-        let rd = r.started_at.date_naive();
+        let rd = r.started_at.date();
         if rd >= week_start {
             stats.weekly_run_count += 1;
         }

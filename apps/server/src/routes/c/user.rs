@@ -50,7 +50,7 @@ async fn update_profile(
     let avatar = body.avatar.as_deref().or(existing.avatar.as_deref());
     let weight = body.weight.or(existing.weight);
     let height = body.height.or(existing.height);
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let user = sqlx::query_as::<_, User>(
         r#"
@@ -94,7 +94,7 @@ async fn update_theme(
         )));
     }
 
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let user = sqlx::query_as::<_, User>(
         r#"

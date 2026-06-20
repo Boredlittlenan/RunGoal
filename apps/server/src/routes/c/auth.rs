@@ -123,7 +123,7 @@ async fn register(
         .map_err(|e| AppError::Internal(format!("Failed to hash password: {}", e)))?;
 
     let id = ulid::Ulid::new().to_string();
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let user = sqlx::query_as::<_, User>(
         r#"

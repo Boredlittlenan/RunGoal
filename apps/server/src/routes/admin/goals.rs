@@ -34,15 +34,15 @@ struct GoalRow {
     unit: String,
     period: String,
     #[sqlx(rename = "startDate")]
-    start_date: chrono::NaiveDate,
+    start_date: chrono::NaiveDateTime,
     #[sqlx(rename = "endDate")]
-    end_date: Option<chrono::NaiveDate>,
+    end_date: Option<chrono::NaiveDateTime>,
     #[sqlx(rename = "isActive")]
     is_active: bool,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
     #[sqlx(rename = "updatedAt")]
-    updated_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::NaiveDateTime,
     #[sqlx(rename = "userNickname")]
     user_nickname: String,
 }
@@ -129,8 +129,8 @@ async fn list(
                 "startDate": g.start_date.to_string(),
                 "endDate": g.end_date.map(|t| t.to_string()),
                 "isActive": g.is_active,
-                "createdAt": g.created_at.to_rfc3339(),
-                "updatedAt": g.updated_at.to_rfc3339(),
+                "createdAt": g.created_at.to_string(),
+                "updatedAt": g.updated_at.to_string(),
                 "userNickname": g.user_nickname
             })
         })

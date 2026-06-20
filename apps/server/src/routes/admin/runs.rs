@@ -35,11 +35,11 @@ struct RunListRow {
     note: Option<String>,
     weather: Option<String>,
     #[sqlx(rename = "startedAt")]
-    started_at: chrono::DateTime<chrono::Utc>,
+    started_at: chrono::NaiveDateTime,
     #[sqlx(rename = "endedAt")]
-    ended_at: Option<chrono::DateTime<chrono::Utc>>,
+    ended_at: Option<chrono::NaiveDateTime>,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
     #[sqlx(rename = "userNickname")]
     user_nickname: String,
 }
@@ -59,13 +59,13 @@ struct RunDetailRow {
     note: Option<String>,
     weather: Option<String>,
     #[sqlx(rename = "startedAt")]
-    started_at: chrono::DateTime<chrono::Utc>,
+    started_at: chrono::NaiveDateTime,
     #[sqlx(rename = "endedAt")]
-    ended_at: Option<chrono::DateTime<chrono::Utc>>,
+    ended_at: Option<chrono::NaiveDateTime>,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
     #[sqlx(rename = "updatedAt")]
-    updated_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::NaiveDateTime,
     // User fields
     #[sqlx(rename = "userPhone")]
     user_phone: String,
@@ -89,9 +89,9 @@ fn run_list_to_json(r: &RunListRow) -> Value {
         "feeling": r.feeling,
         "note": r.note,
         "weather": r.weather,
-        "startedAt": r.started_at.to_rfc3339(),
-        "endedAt": r.ended_at.map(|t| t.to_rfc3339()),
-        "createdAt": r.created_at.to_rfc3339(),
+        "startedAt": r.started_at.to_string(),
+        "endedAt": r.ended_at.map(|t| t.to_string()),
+        "createdAt": r.created_at.to_string(),
         "userNickname": r.user_nickname
     })
 }
@@ -211,10 +211,10 @@ async fn detail(
                 "feeling": r.feeling,
                 "note": r.note,
                 "weather": r.weather,
-                "startedAt": r.started_at.to_rfc3339(),
-                "endedAt": r.ended_at.map(|t| t.to_rfc3339()),
-                "createdAt": r.created_at.to_rfc3339(),
-                "updatedAt": r.updated_at.to_rfc3339(),
+                "startedAt": r.started_at.to_string(),
+                "endedAt": r.ended_at.map(|t| t.to_string()),
+                "createdAt": r.created_at.to_string(),
+                "updatedAt": r.updated_at.to_string(),
                 "user": {
                     "id": r.user_id,
                     "phone": r.user_phone,

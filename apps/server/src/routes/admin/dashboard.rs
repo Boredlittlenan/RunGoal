@@ -15,7 +15,7 @@ struct RecentRunRow {
     distance: f64,
     duration: i32,
     #[sqlx(rename = "startedAt")]
-    started_at: chrono::DateTime<chrono::Utc>,
+    started_at: chrono::NaiveDateTime,
     #[sqlx(rename = "userNickname")]
     user_nickname: String,
 }
@@ -26,7 +26,7 @@ struct RecentUserRow {
     nickname: String,
     phone: String,
     #[sqlx(rename = "createdAt")]
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::NaiveDateTime,
 }
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
@@ -132,14 +132,14 @@ async fn stats(
                 "id": r.id,
                 "distance": r.distance,
                 "duration": r.duration,
-                "startedAt": r.started_at.to_rfc3339(),
+                "startedAt": r.started_at.to_string(),
                 "userNickname": r.user_nickname
             })).collect::<Vec<_>>(),
             "recentUsers": recent_users.iter().map(|u| json!({
                 "id": u.id,
                 "nickname": u.nickname,
                 "phone": u.phone,
-                "createdAt": u.created_at.to_rfc3339()
+                "createdAt": u.created_at.to_string()
             })).collect::<Vec<_>>()
         }
     }))

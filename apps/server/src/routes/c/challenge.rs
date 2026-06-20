@@ -87,7 +87,7 @@ async fn create_challenge(
     }
 
     let id = ulid::Ulid::new().to_string();
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let challenge = sqlx::query_as::<_, Challenge>(
         r#"
@@ -154,7 +154,7 @@ async fn abandon_challenge(
     auth: AuthUser,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let now = Utc::now();
+    let now = Utc::now().naive_utc();
 
     let challenge = sqlx::query_as::<_, Challenge>(
         r#"

@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -8,25 +8,33 @@ use sqlx::FromRow;
 pub struct Challenge {
     pub id: String,
     #[serde(rename = "userId")]
+    #[sqlx(rename = "userId")]
     pub user_id: String,
     pub title: String,
     #[serde(rename = "type")]
+    #[sqlx(rename = "type")]
     pub challenge_type: String,
     #[serde(rename = "targetValue")]
+    #[sqlx(rename = "targetValue")]
     pub target_value: f64,
     pub unit: String,
     pub status: String,
     #[serde(rename = "startDate")]
-    pub start_date: NaiveDate,
+    #[sqlx(rename = "startDate")]
+    pub start_date: NaiveDateTime,
     #[serde(rename = "endDate")]
-    pub end_date: NaiveDate,
+    #[sqlx(rename = "endDate")]
+    pub end_date: NaiveDateTime,
     pub progress: f64,
     #[serde(rename = "completedAt")]
-    pub completed_at: Option<DateTime<Utc>>,
+    #[sqlx(rename = "completedAt")]
+    pub completed_at: Option<NaiveDateTime>,
     #[serde(rename = "createdAt")]
-    pub created_at: DateTime<Utc>,
+    #[sqlx(rename = "createdAt")]
+    pub created_at: NaiveDateTime,
     #[serde(rename = "updatedAt")]
-    pub updated_at: DateTime<Utc>,
+    #[sqlx(rename = "updatedAt")]
+    pub updated_at: NaiveDateTime,
 }
 
 /// Request body for creating a new challenge.
@@ -38,8 +46,8 @@ pub struct CreateChallengeRequest {
     pub challenge_type: String,
     pub target_value: f64,
     pub unit: String,
-    pub start_date: NaiveDate,
-    pub end_date: NaiveDate,
+    pub start_date: NaiveDateTime,
+    pub end_date: NaiveDateTime,
 }
 
 /// Query parameters for listing challenges, optionally filtered by status.

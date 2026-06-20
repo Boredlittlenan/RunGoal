@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════
-# RunGoal 部署脚本 (适配 1Panel 环境)
+# RunGoal 部署脚本 (Rust 后端 + 1Panel 环境)
 # 首次部署：bash deploy/deploy.sh
 # 更新部署：bash deploy/deploy.sh update
 # ═══════════════════════════════════════════════════
@@ -22,7 +22,7 @@ warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
 echo ""
-echo "🏃 RunGoal 部署脚本"
+echo "🏃 RunGoal 部署脚本 (Rust 后端)"
 echo "════════════════════════════════════"
 
 # ─── 判断模式 ───
@@ -43,7 +43,7 @@ if [ "$EUID" -ne 0 ]; then
   err "请使用 root 权限运行此脚本：sudo bash deploy/deploy.sh"
 fi
 
-# Node.js
+# Node.js (前端构建需要)
 if command -v node &>/dev/null; then
   NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
   if [ "$NODE_VER" -lt "$NODE_MIN_VERSION" ]; then
@@ -58,7 +58,7 @@ else
   err "安装 Node.js 后请重新运行此脚本"
 fi
 
-# pnpm
+# pnpm (前端依赖管理)
 if ! command -v pnpm &>/dev/null; then
   warn "未检测到 pnpm，正在安装..."
   npm install -g pnpm
@@ -67,12 +67,22 @@ else
   log "pnpm $(pnpm -v)"
 fi
 
+# Rust (后端编译需要)
+if command -v cargo &>/dev/null; then
+  log "Cargo $(cargo --version | cut -d' ' -f2)"
+else
+  warn "未检测到 Rust 工具链，正在安装..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  source "$HOME/.cargo/env"
+  log "Rust 已安装: $(cargo --version | cut -d' ' -f2)"
+fi
+
 # git
 if ! command -v git &>/dev/null; then
   err "未检测到 git，请先安装: apt-get install -y git"
 fi
 
-# PM2
+# PM2 (进程管理)
 if ! command -v pm2 &>/dev/null; then
   warn "未检测到 PM2，正在安装..."
   npm install -g pm2
@@ -136,8 +146,7 @@ EOF
   echo "  修改 DATABASE_URL 为服务器上 PostgreSQL 的真实连接信息"
   echo "  格式：postgresql://用户名:密码@127.0.0.1:5432/数据库名"
   echo ""
-  echo "  如果还没创建 rungoal 数据库，请执行："
-  echo "  sudo -u postgres psql -c 'CREATE DATABASE rungoal;'"
+  echo "  如果还没创建 rungoal 数据库，请在 1Panel 数据库管理中创建"
   echo ""
   echo "  编辑完成后重新运行：sudo bash deploy/deploy.sh update"
   exit 1
@@ -145,12 +154,15 @@ else
   log ".env 已存在，跳过配置"
 fi
 
-# ─── 4. 安装依赖 ───
+# ─── 4. 前端依赖安装 ───
 echo ""
-echo "→ 安装依赖..."
+echo "→ 安装前端依赖..."
 cd $APP_DIR
-pnpm install --frozen-lockfile
-log "依赖安装完成"
+
+# 只为前端安装依赖（server 是 Rust 项目，不需要 pnpm）
+cd $APP_DIR/apps/web && pnpm install --frozen-lockfile
+cd $APP_DIR/apps/admin && pnpm install --frozen-lockfile
+log "前端依赖安装完成"
 
 # ─── 5. 构建 ───
 echo ""
@@ -164,18 +176,11 @@ echo "  构建 Admin 后台..."
 cd $APP_DIR/apps/admin && pnpm build
 log "Admin 后台构建完成"
 
-echo "  构建后端服务..."
-cd $APP_DIR/apps/server && pnpm build
-log "后端服务构建完成"
+echo "  编译 Rust 后端 (release)..."
+cd $APP_DIR/apps/server && cargo build --release
+log "Rust 后端编译完成"
 
-# ─── 6. 数据库 ───
-echo ""
-echo "→ 推送数据库 Schema..."
-cd $APP_DIR/apps/server
-npx prisma db push --accept-data-loss
-log "数据库 Schema 已同步"
-
-# ─── 7. 启动/重启后端 ───
+# ─── 6. 启动/重启后端 ───
 echo ""
 echo "→ 启动后端服务..."
 pm2 delete rungoal-server 2>/dev/null || true
@@ -190,7 +195,7 @@ fi
 
 log "后端服务已启动 (PM2: rungoal-server)"
 
-# ─── 8. Nginx 配置提示 ───
+# ─── 7. Nginx 配置提示 ───
 echo ""
 echo "════════════════════════════════════"
 echo "✅ RunGoal 部署完成！"

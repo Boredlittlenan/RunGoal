@@ -13,13 +13,5 @@
   "packageManager": "pnpm@10.27.0",
   "engines": {
     "node": ">=20"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "@prisma/client",
-      "@prisma/engines",
-      "prisma"
-    ]
   }
 }

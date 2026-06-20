@@ -9,13 +9,13 @@ dist/
 !.env.example
 !deploy/.env.production
 
-# Prisma
-apps/server/prisma/*.db
-apps/server/prisma/migrations/
+# Rust
+apps/server/target/
 
 # IDE
 .vscode/
 .idea/
+.kagent/
 *.swp
 *.swo
 

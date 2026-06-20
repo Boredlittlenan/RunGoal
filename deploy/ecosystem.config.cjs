@@ -1,4 +1,4 @@
-// PM2 进程管理配置
+// PM2 进程管理配置 (Rust 后端)
 // 使用方式：pm2 start deploy/ecosystem.config.cjs
 
 module.exports = {
@@ -6,13 +6,13 @@ module.exports = {
     {
       name: 'rungoal-server',
       cwd: '/opt/rungoal/apps/server',
-      script: 'dist/app.js',
+      script: 'target/release/rungoal-server',
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: '256M',
       env: {
-        NODE_ENV: 'production',
+        RUST_LOG: 'info',
         PORT: 3000,
       },
       // 日志

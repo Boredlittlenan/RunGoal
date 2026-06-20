@@ -17,8 +17,7 @@
 | 路由 | React Router v6 | 标准选择 |
 | 图表 | ECharts (via echarts-for-react) | 功能全面，跑量热力图、配速趋势图、日历视图都能覆盖 |
 | 本地缓存 | IndexedDB (Dexie.js) | GPS 追踪数据量大，需要本地暂存再同步 |
-| 后端框架 | Node.js + Express + TypeScript | 前后端统一语言，降低心智负担 |
-| ORM | Prisma | 类型安全，迁移管理方便，与 TS 深度集成 |
+| 后端框架 | Rust + Axum 0.8 + SQLx 0.9 | 高性能、低内存占用，编译期类型安全，零成本抽象 |
 | 数据库 | PostgreSQL | 可靠、功能丰富，JSON 列支持灵活扩展 |
 | 认证 | JWT (access + refresh token) | 无状态，H5 友好 |
 | 地图 | 第一期不做，预留接口 | 后续接入高德 JS SDK 或 Mapbox GL |
@@ -178,31 +177,25 @@ sport-app/
 │   │   ├── vite.config.ts
 │   │   └── package.json
 │   │
-│   └── server/                 # 后端 API 服务（C 端 + Admin 共用）
+│   └── server/                 # 后端 API 服务（Rust, C 端 + Admin 共用）
 │       ├── src/
-│       │   ├── routes/
-│       │   │   ├── auth.ts, run.ts, goal.ts ...     # C 端路由
-│       │   │   ├── adminAuth.ts                     # 管理员认证
-│       │   │   ├── adminDashboard.ts                # 仪表盘数据
-│       │   │   ├── adminUsers.ts, adminRuns.ts ...  # Admin CRUD
-│       │   ├── controllers/
-│       │   ├── services/       # 业务逻辑（含成就检测引擎）
+│       │   ├── config.rs           # 环境变量配置
+│       │   ├── db.rs               # SQLx 连接池
+│       │   ├── error.rs            # 统一错误处理
+│       │   ├── main.rs             # 入口：路由注册 + 服务启动
 │       │   ├── middleware/
-│       │   │   ├── auth.ts          # C 端 JWT 认证
-│       │   │   ├── adminAuth.ts     # Admin JWT 认证（独立密钥）
-│       │   │   └── errorHandler.ts
-│       │   ├── prisma/
-│       │   └── app.ts
-│       ├── package.json
-│       └── tsconfig.json
-│
-├── packages/
-│   └── shared/                 # 前后端共享代码
-│       ├── src/
-│       │   ├── achievements/   # 成就定义 + 检测函数
-│       │   ├── types/          # 共享类型
-│       │   └── index.ts
-│       └── package.json
+│       │   │   ├── auth.rs         # JWT 认证 Extractor（AuthUser / AuthAdmin）
+│       │   │   └── mod.rs
+│       │   ├── models/             # 数据模型（User, Run, Goal 等）
+│       │   ├── routes/
+│       │   │   ├── c/              # C 端路由（auth, run, goal, achievement, challenge, stats, user）
+│       │   │   ├── admin/          # 管理后台路由（auth, dashboard, users, runs, goals, achievements, challenges）
+│       │   │   └── mod.rs
+│       │   └── services/
+│       │       ├── stats.rs        # 用户统计数据计算
+│       │       └── achievement.rs  # 成就检测引擎（20 个成就）
+│       ├── Cargo.toml
+│       └── .env
 │
 ├── package.json                # monorepo 根配置
 ├── pnpm-workspace.yaml         # pnpm workspace
@@ -503,10 +496,12 @@ C 端前端 (apps/web)：
   → 与 C 端共用后端 API，通过 /api/admin/* 路由区分
 
 后端 (apps/server)：
-  → PM2 管理 Node.js 进程
-  → Nginx 反向代理 /api → Node
+  → Rust 编译为单一二进制文件（~7MB），极低内存占用
+  → PM2 管理进程（或 systemd）
+  → Nginx 反向代理 /api → Rust 服务
   → PostgreSQL 直接装在服务器或用云数据库
   → Admin 和 C 端使用独立的 JWT 密钥，互不干扰
+  → 数据库 schema 通过 Prisma 管理（仅用于建表/迁移），运行时直连 SQLx
 
 HTTPS：
   → Let's Encrypt 免费证书 + certbot 自动续期

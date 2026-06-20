@@ -13,7 +13,7 @@ export default function GpsRunPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchRef = useRef<number | null>(null);
   const lastPointRef = useRef<{ lat: number; lng: number } | null>(null);
-  const startTimeRef = useRef<Date>(new Date());
+  const startTimeRef = useRef<Date | null>(null);
   const trackPointsRef = useRef<Array<{ lat: number; lng: number; timestamp: number }>>([]);
 
   // Haversine 公式计算两点距离（米）
@@ -38,10 +38,14 @@ export default function GpsRunPage() {
     }
 
     setStatus('running');
-    startTimeRef.current = new Date();
-    trackPointsRef.current = [];
 
-    // 计时器
+    // Only initialize on fresh start (not resume)
+    if (!startTimeRef.current) {
+      startTimeRef.current = new Date();
+    }
+
+    // Timer
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setDuration((prev) => prev + 1);
     }, 1000);
@@ -85,11 +89,9 @@ export default function GpsRunPage() {
   }, []);
 
   const resumeTracking = useCallback(() => {
-    setStatus('running');
-    timerRef.current = setInterval(() => {
-      setDuration((prev) => prev + 1);
-    }, 1000);
-    // 重新开始 GPS 监听（重新开始计时后复用 startTracking 逻辑即可，这里简化处理）
+    // Clear old timer if any (set during pause shouldn't happen, but be safe)
+    if (timerRef.current) clearInterval(timerRef.current);
+    // Don't reset startTimeRef or trackPointsRef — preserve accumulated data
     startTracking();
   }, [startTracking]);
 
@@ -109,7 +111,7 @@ export default function GpsRunPage() {
         source: 'gps',
         distance: Math.round(distance * 100) / 100, // km
         duration,
-        startedAt: startTimeRef.current.toISOString(),
+        startedAt: startTimeRef.current?.toISOString() ?? new Date().toISOString(),
         endedAt: new Date().toISOString(),
         trackPoints: trackPointsRef.current.length > 0 ? JSON.stringify(trackPointsRef.current) : null,
       });

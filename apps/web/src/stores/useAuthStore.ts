@@ -61,11 +61,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   fetchUser: async () => {
     try {
       const res: any = await api.get('/auth/me');
-      const user = res.data;
-      localStorage.setItem('user', JSON.stringify(user));
-      set({ user, isLoggedIn: true });
+      const user = res?.data ?? res;
+      if (user && user.id) {
+        localStorage.setItem('user', JSON.stringify(user));
+        set({ user, isLoggedIn: true });
+      } else {
+        // 返回数据无效，清除登录态
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        set({ user: null, isLoggedIn: false });
+      }
     } catch {
-      // token 无效
+      // token 无效或过期，清除登录态
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      set({ user: null, isLoggedIn: false });
     }
   },
 

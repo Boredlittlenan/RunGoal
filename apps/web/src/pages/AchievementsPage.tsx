@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import ShareModal from '@/components/ShareModal';
 
 type Tab = 'achievements' | 'challenges';
 
@@ -71,6 +72,7 @@ function MedalIcon({ unlocked }: { unlocked: boolean }) {
 
 export default function AchievementsPage() {
   const [tab, setTab] = useState<Tab>('achievements');
+  const [shareOpen, setShareOpen] = useState(false);
 
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loadingAch, setLoadingAch] = useState(true);
@@ -121,8 +123,16 @@ export default function AchievementsPage() {
 
   return (
     <div className="px-4 py-6 space-y-4">
-      <header>
+      <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold">成就 & 挑战</h1>
+        {tab === 'achievements' && (
+          <button
+            onClick={() => setShareOpen(true)}
+            className="btn-secondary text-sm"
+          >
+            分享成就
+          </button>
+        )}
       </header>
 
       {/* Tab 切换 */}
@@ -293,6 +303,13 @@ export default function AchievementsPage() {
           )}
         </div>
       )}
+
+      {/* Share Modal */}
+      <ShareModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        initialType="achievement"
+      />
     </div>
   );
 }

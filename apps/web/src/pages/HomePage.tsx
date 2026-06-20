@@ -23,8 +23,8 @@ function formatPace(pace: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function formatDuration(minutes: number): string {
-  return Math.round(minutes).toString();
+function formatDuration(seconds: number): string {
+  return Math.round(seconds / 60).toString();
 }
 
 function formatDate(dateStr: string): string {
@@ -87,7 +87,7 @@ export default function HomePage() {
   }, []);
 
   const nickname = user?.nickname ?? '跑者';
-  const distanceDisplay = (weeklyStats.totalDistance / 1000).toFixed(1);
+  const distanceDisplay = weeklyStats.totalDistance.toFixed(1);
 
   return (
     <div className="px-4 py-6 space-y-6">
@@ -164,7 +164,7 @@ export default function HomePage() {
                 <div>
                   <p className="text-sm font-medium">{formatDate(run.date)}</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    {(run.distance / 1000).toFixed(2)} km
+                    {run.distance.toFixed(2)} km
                   </p>
                 </div>
                 <div className="text-right">

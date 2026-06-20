@@ -20,6 +20,7 @@ pub fn routes() -> Router<AppState> {
         .route("/pace-trend", get(pace_trend))
         .route("/weekly", get(weekly))
         .route("/monthly", get(monthly))
+        .route("/period", get(period_stats))
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +258,123 @@ async fn monthly(
             "totalDistance": total_distance,
             "totalDuration": total_duration,
             "totalRuns": total_runs,
+        },
+    })))
+}
+
+// ---------------------------------------------------------------------------
+// GET /period — flexible period-based stats for share cards
+// Query: type=day|week|month|quarter|year&date=YYYY-MM-DD (optional)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct PeriodQuery {
+    #[serde(rename = "type")]
+    period_type: Option<String>,
+    date: Option<String>,
+}
+
+async fn period_stats(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(query): Query<PeriodQuery>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    use chrono::{Datelike, NaiveDate, Utc};
+
+    let period_type = query.period_type.as_deref().unwrap_or("month");
+
+    let ref_date = query
+        .date
+        .as_deref()
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+        .unwrap_or_else(|| Utc::now().date_naive());
+
+    let (start, end, label) = match period_type {
+        "day" => {
+            let s = ref_date.and_hms_opt(0, 0, 0).unwrap();
+            let e = (ref_date + chrono::Duration::days(1)).and_hms_opt(0, 0, 0).unwrap();
+            (s, e, ref_date.format("%Y年%m月%d日").to_string())
+        }
+        "week" => {
+            let wd = ref_date.weekday().num_days_from_monday() as i64;
+            let week_start = ref_date - chrono::Duration::days(wd);
+            let week_end = week_start + chrono::Duration::days(7);
+            let s = week_start.and_hms_opt(0, 0, 0).unwrap();
+            let e = week_end.and_hms_opt(0, 0, 0).unwrap();
+            (s, e, format!("{}年 第{}周", week_start.year(), ref_date.iso_week().week()))
+        }
+        "month" => {
+            let month_start = NaiveDate::from_ymd_opt(ref_date.year(), ref_date.month(), 1).unwrap();
+            let next_month = if ref_date.month() == 12 {
+                NaiveDate::from_ymd_opt(ref_date.year() + 1, 1, 1).unwrap()
+            } else {
+                NaiveDate::from_ymd_opt(ref_date.year(), ref_date.month() + 1, 1).unwrap()
+            };
+            let s = month_start.and_hms_opt(0, 0, 0).unwrap();
+            let e = next_month.and_hms_opt(0, 0, 0).unwrap();
+            (s, e, format!("{}年{}月", ref_date.year(), ref_date.month()))
+        }
+        "quarter" => {
+            let q = (ref_date.month() - 1) / 3;
+            let q_start_month = q * 3 + 1;
+            let q_end_month = q_start_month + 3;
+            let q_start = NaiveDate::from_ymd_opt(ref_date.year(), q_start_month, 1).unwrap();
+            let q_end = if q_end_month > 12 {
+                NaiveDate::from_ymd_opt(ref_date.year() + 1, 1, 1).unwrap()
+            } else {
+                NaiveDate::from_ymd_opt(ref_date.year(), q_end_month, 1).unwrap()
+            };
+            let s = q_start.and_hms_opt(0, 0, 0).unwrap();
+            let e = q_end.and_hms_opt(0, 0, 0).unwrap();
+            (s, e, format!("{}年 Q{}", ref_date.year(), q + 1))
+        }
+        "year" => {
+            let year_start = NaiveDate::from_ymd_opt(ref_date.year(), 1, 1).unwrap();
+            let year_end = NaiveDate::from_ymd_opt(ref_date.year() + 1, 1, 1).unwrap();
+            let s = year_start.and_hms_opt(0, 0, 0).unwrap();
+            let e = year_end.and_hms_opt(0, 0, 0).unwrap();
+            (s, e, format!("{}年", ref_date.year()))
+        }
+        _ => return Err(AppError::BadRequest("Invalid period type".into())),
+    };
+
+    let start_utc = chrono::DateTime::<Utc>::from_naive_utc_and_offset(start, Utc);
+    let end_utc = chrono::DateTime::<Utc>::from_naive_utc_and_offset(end, Utc);
+
+    let agg: (f64, i64, i64) = sqlx::query_as(
+        r#"SELECT COALESCE(SUM(distance),0.0)::float8, COALESCE(SUM(duration),0)::bigint, COUNT(*)::bigint
+           FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
+    )
+    .bind(&auth.user_id).bind(start_utc).bind(end_utc)
+    .fetch_one(&state.pool).await?;
+
+    let (total_distance, total_duration, total_runs) = agg;
+    let avg_pace = if total_distance > 0.0 { Some((total_duration as f64)/60.0/total_distance) } else { None };
+
+    let best_pace: Option<f64> = sqlx::query_scalar(
+        r#"SELECT MIN("avgPace") FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3 AND distance>=3.0 AND "avgPace" IS NOT NULL"#,
+    ).bind(&auth.user_id).bind(start_utc).bind(end_utc).fetch_one(&state.pool).await?;
+
+    let max_distance: Option<f64> = sqlx::query_scalar(
+        r#"SELECT MAX(distance) FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
+    ).bind(&auth.user_id).bind(start_utc).bind(end_utc).fetch_one(&state.pool).await?;
+
+    let running_days: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(DISTINCT "startedAt"::date) FROM "Run" WHERE "userId"=$1 AND "startedAt">=$2 AND "startedAt"<$3"#,
+    ).bind(&auth.user_id).bind(start_utc).bind(end_utc).fetch_one(&state.pool).await?;
+
+    Ok(Json(json!({
+        "success": true,
+        "data": {
+            "totalDistance": total_distance,
+            "totalDuration": total_duration,
+            "totalRuns": total_runs,
+            "avgPace": avg_pace,
+            "bestPace": best_pace,
+            "maxDistance": max_distance.unwrap_or(0.0),
+            "runningDays": running_days,
+            "periodType": period_type,
+            "label": label,
         },
     })))
 }

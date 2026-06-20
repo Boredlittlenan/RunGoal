@@ -24,7 +24,7 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) fetchUser();
-  }, []);
+  }, [isLoggedIn, fetchUser]);
 
   return (
     <Routes>

@@ -1,30 +1,36 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '@/lib/api';
+import ShareModal from '@/components/ShareModal';
+import type { RunData } from '@/lib/shareCard';
 
 interface Run {
   id: string;
-  distance: number;       // meters
+  distance: number;       // km
   duration: number;       // seconds
-  avgPace?: number;       // seconds per km
+  avgPace?: number;       // min/km
   source: 'gps' | 'manual';
   feeling?: number;       // 1-5
   startedAt: string;      // ISO datetime
+  weather?: string;
+  note?: string;
 }
 
 const FEELING_EMOJI = ['', '😫', '😓', '😐', '😊', '🔥'];
 
-function formatPace(secondsPerKm?: number): string {
-  if (!secondsPerKm) return '--';
-  const min = Math.floor(secondsPerKm / 60);
-  const sec = Math.round(secondsPerKm % 60);
+function formatPace(minPerKm?: number): string {
+  if (!minPerKm) return '--';
+  const min = Math.floor(minPerKm);
+  const sec = Math.round((minPerKm - min) * 60);
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 function formatDuration(seconds: number): string {
-  const min = Math.floor(seconds / 60);
-  const sec = seconds % 60;
-  return sec > 0 ? `${min}分${sec}秒` : `${min}分钟`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h${m}m`;
+  return s > 0 ? `${m}m${s}s` : `${m}min`;
 }
 
 function formatDate(iso: string): string {
@@ -40,16 +46,17 @@ export default function RunListPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareRun, setShareRun] = useState<RunData | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     const fetchRuns = async () => {
       try {
         setLoading(true);
-        const res = await api.get('/runs', { params: { page: 1, pageSize: 20 } });
+        const res: any = await api.get('/runs', { params: { page: 1, pageSize: 20 } });
         if (!cancelled) {
-          // Support both { data: { items: [...] } } and { data: [...] }
-          const items = res.data?.items ?? res.data ?? res;
+          const items = res?.data ?? res;
           setRuns(Array.isArray(items) ? items : []);
         }
       } catch (err: any) {
@@ -66,11 +73,34 @@ export default function RunListPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const openShare = (run: Run, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShareRun({
+      id: run.id,
+      distance: run.distance,
+      duration: run.duration,
+      avgPace: run.avgPace,
+      startedAt: run.startedAt,
+      feeling: run.feeling,
+      weather: run.weather,
+      note: run.note,
+      source: run.source,
+    });
+    setShareOpen(true);
+  };
+
   return (
     <div className="px-4 py-6 space-y-4">
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold">跑步记录</h1>
         <div className="flex gap-2">
+          <button
+            onClick={() => { setShareRun(undefined); setShareOpen(true); }}
+            className="btn-secondary text-sm"
+            title="分享成绩"
+          >
+            分享
+          </button>
           <Link to="/runs/record" className="btn-secondary text-sm">
             手动录入
           </Link>
@@ -113,11 +143,7 @@ export default function RunListPage() {
           {runs.map((run) => (
             <div
               key={run.id}
-              className="card p-4 cursor-pointer transition-opacity hover:opacity-80"
-              onClick={() => {
-                // Future: navigate to run detail page
-                // navigate(`/runs/${run.id}`);
-              }}
+              className="card p-4 transition-opacity hover:opacity-90"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
@@ -141,7 +167,7 @@ export default function RunListPage() {
               <div className="flex items-center gap-6" style={{ color: 'var(--color-text-secondary)' }}>
                 <div>
                   <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                    {(run.distance / 1000).toFixed(2)}
+                    {run.distance.toFixed(2)}
                   </span>
                   <span className="text-xs ml-1">km</span>
                 </div>
@@ -155,10 +181,31 @@ export default function RunListPage() {
                   </span>
                 </div>
               </div>
+              {/* Share button per run */}
+              <div className="mt-3 flex justify-end">
+                <button
+                  onClick={(e) => openShare(run, e)}
+                  className="text-xs font-medium px-3 py-1 rounded-full transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(0,210,106,0.1)',
+                    color: 'var(--color-accent)',
+                  }}
+                >
+                  分享这次跑步
+                </button>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Share Modal */}
+      <ShareModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        initialType={shareRun ? 'single' : undefined}
+        run={shareRun}
+      />
     </div>
   );
 }

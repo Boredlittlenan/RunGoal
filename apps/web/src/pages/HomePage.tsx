@@ -11,10 +11,10 @@ interface WeeklyStats {
 
 interface RunRecord {
   id: string;
-  date: string;
+  startedAt: string;
   distance: number;
   duration: number;
-  pace: number;
+  avgPace: number | null;
 }
 
 function formatPace(pace: number): string {
@@ -162,7 +162,7 @@ export default function HomePage() {
             {recentRuns.map((run) => (
               <div key={run.id} className="card flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">{formatDate(run.date)}</p>
+                  <p className="text-sm font-medium">{formatDate(run.startedAt)}</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                     {run.distance.toFixed(2)} km
                   </p>
@@ -170,7 +170,7 @@ export default function HomePage() {
                 <div className="text-right">
                   <p className="text-sm font-medium">{formatDuration(run.duration)} 分钟</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    配速 {formatPace(run.pace)} /km
+                    配速 {run.avgPace ? formatPace(run.avgPace) : '--:--'} /km
                   </p>
                 </div>
               </div>

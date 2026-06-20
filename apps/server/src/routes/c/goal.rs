@@ -43,9 +43,39 @@ async fn fetch_goal_records(pool: &sqlx::PgPool, goal_id: &str) -> Result<Vec<Go
 
 /// Compute current_value and progress percentage for a goal.
 fn compute_progress(goal: &Goal, records: &[GoalRecord]) -> (f64, f64) {
-    let current_value: f64 = records.iter().map(|r| r.value).sum();
+    let current_value: f64 = match goal.goal_type.as_str() {
+        // 配速型：取最佳（最小）配速
+        "pace" => records
+            .iter()
+            .map(|r| r.value)
+            .fold(f64::INFINITY, f64::min),
+        // 距离型（单次达标）：取最大单次距离
+        "distance" => records
+            .iter()
+            .map(|r| r.value)
+            .fold(0.0_f64, f64::max),
+        // 累计型 / 频次型 / 默认：求和
+        _ => records.iter().map(|r| r.value).sum(),
+    };
+    // pace 目标如果无记录则 current_value 为 0
+    let current_value = if records.is_empty() { 0.0 } else { current_value };
+
     let progress_pct = if goal.target_value > 0.0 {
-        ((current_value / goal.target_value) * 100.0).min(100.0)
+        let pct = match goal.goal_type.as_str() {
+            // 配速型：当前配速 <= 目标配速 即 100%（越小越好）
+            "pace" => {
+                if current_value > 0.0 && current_value <= goal.target_value {
+                    100.0
+                } else if current_value > 0.0 {
+                    // 差距越大进度越低
+                    ((goal.target_value / current_value) * 100.0).min(100.0)
+                } else {
+                    0.0
+                }
+            }
+            _ => ((current_value / goal.target_value) * 100.0).min(100.0),
+        };
+        pct
     } else {
         0.0
     };

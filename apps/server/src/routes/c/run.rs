@@ -246,9 +246,19 @@ async fn create_run(
 
     for (goal_id, goal_type, unit) in &active_goals {
         let value: Option<f64> = match (goal_type.as_str(), unit.as_str()) {
+            // 累计型 (km) — 累加每次跑步距离
+            ("cumulative", "km") => Some(run.distance),
+            // 累计型 (min) — 累加每次跑步时长
+            ("cumulative", "min") => Some(run.duration as f64 / 60.0),
+            // 频次型 — 每次跑步计 1 次
+            ("frequency", _) => Some(1.0),
+            // 距离型 (km) — 取单次最大距离
             ("distance", "km") => Some(run.distance),
-            ("run_count", "times") => Some(1.0),
-            ("duration", "min") => Some(run.duration as f64),
+            // 配速型 (min/km) — 取单次配速（越小越好，前端取 min 判断）
+            ("pace", _) if run.avg_pace.is_some() => run.avg_pace,
+            // 旧版兼容
+            ("run_count", _) => Some(1.0),
+            ("duration", "min") => Some(run.duration as f64 / 60.0),
             _ => None,
         };
         if let Some(v) = value {

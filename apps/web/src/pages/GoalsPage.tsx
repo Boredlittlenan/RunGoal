@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 
-interface Goal {
-  id: string;
-  title: string;
-  type: string;          // cumulative | frequency | pace | distance
-  targetValue: number;
-  unit: string;
-  period: string;        // weekly | monthly | once
-  isActive: boolean;
+interface GoalItem {
+  goal: {
+    id: string;
+    title: string;
+    type: string;
+    targetValue: number;
+    unit: string;
+    period: string;
+    isActive: boolean;
+    startDate: string;
+    endDate?: string;
+  };
+  currentValue: number;
+  progressPct: number;
 }
 
 const TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -25,25 +32,33 @@ const PERIOD_LABEL: Record<string, string> = {
 };
 
 export default function GoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const navigate = useNavigate();
+  const [goals, setGoals] = useState<GoalItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res: any = await api.get('/goals');
-        // handle both { data: [...] } and plain array
-        setGoals(Array.isArray(res) ? res : res?.data ?? []);
-      } catch {
-        setGoals([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const fetchGoals = async () => {
+    setLoading(true);
+    try {
+      const res: any = await api.get('/goals');
+      const items = Array.isArray(res) ? res : res?.data ?? [];
+      setGoals(items);
+    } catch {
+      setGoals([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleCreate = () => {
-    alert('功能开发中');
+  useEffect(() => { fetchGoals(); }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('确定删除这个目标吗？')) return;
+    try {
+      await api.delete(`/goals/${id}`);
+      fetchGoals();
+    } catch {
+      alert('删除失败');
+    }
   };
 
   return (
@@ -51,7 +66,7 @@ export default function GoalsPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold">我的目标</h1>
         <button
-          onClick={handleCreate}
+          onClick={() => navigate('/goals/create')}
           className="btn-primary text-sm"
         >
           + 新建目标
@@ -59,11 +74,11 @@ export default function GoalsPage() {
       </header>
 
       {/* 目标类型说明 */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-4 gap-2">
         {Object.entries(TYPE_META).map(([key, meta]) => (
-          <div key={key} className="card text-center py-3 cursor-pointer hover:opacity-80 transition-opacity">
-            <p className="text-2xl mb-1">{meta.icon}</p>
-            <p className="text-sm font-medium">{meta.label}</p>
+          <div key={key} className="card text-center py-2">
+            <p className="text-xl mb-0.5">{meta.icon}</p>
+            <p className="text-xs font-medium">{meta.label}</p>
           </div>
         ))}
       </div>
@@ -71,52 +86,100 @@ export default function GoalsPage() {
       {/* 目标列表 */}
       {loading ? (
         <div className="card text-center py-16" style={{ color: 'var(--color-text-secondary)' }}>
-          <p className="text-sm">加载中…</p>
+          <p className="text-sm">加载中...</p>
         </div>
       ) : goals.length === 0 ? (
         <div className="card text-center py-16" style={{ color: 'var(--color-text-secondary)' }}>
           <p className="text-sm">还没有创建目标</p>
           <p className="text-xs mt-1">设定你的第一个跑步目标吧</p>
+          <button
+            onClick={() => navigate('/goals/create')}
+            className="btn-primary text-sm mt-4"
+          >
+            创建第一个目标
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
-          {goals.map((goal) => {
-            const meta = TYPE_META[goal.type] ?? { label: goal.type, color: '#888', icon: '🎯' };
+          {goals.map((item) => {
+            const g = item.goal;
+            const meta = TYPE_META[g.type] ?? { label: g.type, color: '#888', icon: '🎯' };
+            const pct = Math.min(item.progressPct, 100);
             return (
-              <div key={goal.id} className="card flex items-center gap-3">
-                {/* 类型图标 */}
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
-                  style={{ backgroundColor: `${meta.color}22` }}
-                >
-                  {meta.icon}
-                </div>
+              <div key={g.id} className="card">
+                <div className="flex items-center gap-3">
+                  {/* 类型图标 */}
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                    style={{ backgroundColor: `${meta.color}22` }}
+                  >
+                    {meta.icon}
+                  </div>
 
-                {/* 主内容 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold truncate">{goal.title}</span>
-                    {/* 类型标签 */}
+                  {/* 主内容 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold truncate">{g.title}</span>
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
+                        style={{ backgroundColor: `${meta.color}22`, color: meta.color }}
+                      >
+                        {meta.label}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                      {g.targetValue} {g.unit}
+                      {g.period && ` · ${PERIOD_LABEL[g.period] ?? g.period}`}
+                    </p>
+                  </div>
+
+                  {/* 状态 */}
+                  <div className="text-right shrink-0">
                     <span
-                      className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
-                      style={{ backgroundColor: `${meta.color}22`, color: meta.color }}
+                      className="text-xs font-medium"
+                      style={{ color: g.isActive ? '#10b981' : 'var(--color-text-secondary)' }}
                     >
-                      {meta.label}
+                      {g.isActive ? '进行中' : '已暂停'}
                     </span>
                   </div>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                    目标：{goal.targetValue} {goal.unit}
-                    {goal.period && ` · ${PERIOD_LABEL[goal.period] ?? goal.period}`}
-                  </p>
                 </div>
 
-                {/* 状态 */}
-                <span
-                  className="text-xs font-medium shrink-0"
-                  style={{ color: goal.isActive ? '#10b981' : 'var(--color-text-secondary)' }}
-                >
-                  {goal.isActive ? '进行中' : '已暂停'}
-                </span>
+                {/* 进度条 */}
+                {g.isActive && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span style={{ color: 'var(--color-text-secondary)' }}>
+                        {item.currentValue.toFixed(1)} / {g.targetValue} {g.unit}
+                      </span>
+                      <span style={{ color: meta.color, fontWeight: 600 }}>
+                        {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div
+                      className="h-2 rounded-full overflow-hidden"
+                      style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: pct >= 100 ? '#10b981' : meta.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 操作区 */}
+                <div className="flex justify-end mt-2 pt-2" style={{ borderTop: '1px solid var(--color-bg-secondary)' }}>
+                  <button
+                    onClick={() => handleDelete(g.id)}
+                    className="text-xs px-3 py-1 rounded-lg transition-colors"
+                    style={{ color: '#ef4444' }}
+                  >
+                    删除
+                  </button>
+                </div>
               </div>
             );
           })}

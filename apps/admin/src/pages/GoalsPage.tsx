@@ -37,7 +37,7 @@ export default function GoalsPage() {
     {
       title: '用户',
       key: 'user',
-      render: (_: any, r: any) => r.user?.nickname || '-',
+      render: (_: any, r: any) => r.userNickname || '-',
     },
     {
       title: '类型',

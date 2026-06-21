@@ -42,7 +42,7 @@ export default function ChallengesPage() {
     {
       title: '发起人',
       key: 'user',
-      render: (_: any, r: any) => r.user?.nickname || '-',
+      render: (_: any, r: any) => r.userNickname || '-',
     },
     {
       title: '类型',

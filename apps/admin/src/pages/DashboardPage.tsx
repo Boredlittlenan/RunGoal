@@ -21,11 +21,9 @@ interface DashboardData {
   activeUsers7d: number;
   recentRuns: Array<{
     id: string;
-    user: { nickname: string };
+    userNickname: string;
     distance: number;
     duration: number;
-    avgPace: number | null;
-    source: string;
     startedAt: string;
   }>;
   recentUsers: Array<{
@@ -53,7 +51,7 @@ export default function DashboardPage() {
   const runColumns = [
     {
       title: '用户',
-      dataIndex: ['user', 'nickname'],
+      dataIndex: 'userNickname',
       key: 'user',
     },
     {
@@ -67,25 +65,6 @@ export default function DashboardPage() {
       dataIndex: 'duration',
       key: 'duration',
       render: (v: number) => `${Math.round(v / 60)} 分钟`,
-    },
-    {
-      title: '配速',
-      dataIndex: 'avgPace',
-      key: 'pace',
-      render: (v: number | null) => {
-        if (!v) return '-';
-        const min = Math.floor(v);
-        const sec = Math.round((v - min) * 60);
-        return `${min}:${sec.toString().padStart(2, '0')}`;
-      },
-    },
-    {
-      title: '来源',
-      dataIndex: 'source',
-      key: 'source',
-      render: (v: string) => (
-        <Tag color={v === 'gps' ? 'green' : 'blue'}>{v === 'gps' ? 'GPS' : '手动'}</Tag>
-      ),
     },
     {
       title: '时间',

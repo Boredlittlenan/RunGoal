@@ -9,8 +9,9 @@ export default function LoginPage() {
   const { login, register, isLoggedIn } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('login');
-  const [phone, setPhone] = useState('');
+  const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,10 +28,10 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(phone, password);
+      await login(account, password);
       navigate('/', { replace: true });
     } catch {
-      setError('手机号或密码错误');
+      setError('账号或密码错误');
     } finally {
       setLoading(false);
     }
@@ -39,16 +40,16 @@ export default function LoginPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!nickname.trim()) {
-      setError('请输入昵称');
+    if (!username.trim()) {
+      setError('请输入用户名');
       return;
     }
     setLoading(true);
     try {
-      await register(phone, password, nickname);
+      await register(username, password, nickname.trim() || undefined);
       navigate('/', { replace: true });
-    } catch {
-      setError('注册失败，请稍后重试');
+    } catch (err: any) {
+      setError(err?.error || '注册失败，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -100,11 +101,11 @@ export default function LoginPage() {
       {activeTab === 'login' && (
         <form onSubmit={handleLogin} className="space-y-4">
           <input
-            type="tel"
+            type="text"
             className="input"
-            placeholder="手机号"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            placeholder="用户名或手机号"
+            value={account}
+            onChange={(e) => setAccount(e.target.value)}
             required
           />
           <input
@@ -132,25 +133,24 @@ export default function LoginPage() {
       {activeTab === 'register' && (
         <form onSubmit={handleRegister} className="space-y-4">
           <input
-            type="tel"
+            type="text"
             className="input"
-            placeholder="手机号"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            placeholder="用户名（字母、数字、下划线和.，4-16 位）"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
           />
           <input
             type="text"
             className="input"
-            placeholder="昵称"
+            placeholder="昵称（选填，默认与用户名相同）"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
-            required
           />
           <input
             type="password"
             className="input"
-            placeholder="密码"
+            placeholder="密码（至少 6 位）"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

@@ -50,7 +50,7 @@ async fn list(
         .map(|a: &AchievementDef| {
             let unlocked = count_map.get(a.key).copied().unwrap_or(0);
             let rate = if total_users > 0 {
-                (unlocked as f64 / total_users as f64 * 100.0 * 100.0).round() / 100.0
+                (unlocked as f64 / total_users as f64 * 10000.0).round() / 100.0
             } else {
                 0.0
             };
@@ -60,6 +60,7 @@ async fn list(
                 "description": a.description,
                 "icon": a.icon,
                 "category": a.category,
+                "rarity": a.rarity,
                 "unlockedCount": unlocked,
                 "unlockRate": rate
             })

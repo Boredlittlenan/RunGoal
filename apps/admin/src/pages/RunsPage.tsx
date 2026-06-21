@@ -35,7 +35,7 @@ export default function RunsPage() {
       key: 'user',
       render: (_: any, r: any) => (
         <Button type="link" size="small" onClick={() => navigate(`/users/${r.userId}`)}>
-          {r.user?.nickname || '未知'}
+          {r.userNickname || '未知'}
         </Button>
       ),
     },

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Input, Button, Tag, Space, Typography, DatePicker } from 'antd';
+import { Table, Input, Button, Tag, Space, Typography } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from '../lib/api';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
-const { RangePicker } = DatePicker;
 
 export default function UsersPage() {
   const navigate = useNavigate();
@@ -59,26 +58,12 @@ export default function UsersPage() {
       render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm'),
     },
     {
-      title: '总跑量',
-      key: 'totalDistance',
-      sorter: true,
-      render: (_: any, record: any) => `${(record._count?.runs || 0) > 0 ? '—' : '0'} km`,
-    },
-    {
       title: '跑步次数',
+      dataIndex: 'runCount',
       key: 'runCount',
-      render: (_: any, record: any) => (
-        <Tag>{record._count?.runs || 0} 次</Tag>
+      render: (v: number) => (
+        <Tag>{v || 0} 次</Tag>
       ),
-    },
-    {
-      title: '最近跑步',
-      key: 'lastRun',
-      render: (_: any, record: any) => {
-        const runs = record.runs;
-        if (!runs || runs.length === 0) return <span style={{ color: '#999' }}>无记录</span>;
-        return dayjs(runs[0].startedAt).format('MM-DD');
-      },
     },
     {
       title: '操作',

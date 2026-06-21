@@ -316,30 +316,6 @@ export default function StatsPage() {
         </div>
       </section>
 
-      {/* 快速分享 */}
-      <section className="card">
-        <h2 className="text-sm font-medium mb-4" style={{ color: 'var(--color-text-secondary)' }}>
-          快速分享
-        </h2>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: '本周', icon: '📊' },
-            { label: '本月', icon: '📈' },
-            { label: '本年', icon: '🎯' },
-          ].map(({ label, icon }) => (
-            <button
-              key={label}
-              onClick={() => setShareOpen(true)}
-              className="text-center py-4 rounded-xl transition-all hover:opacity-80"
-              style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-            >
-              <p className="text-2xl mb-1">{icon}</p>
-              <p className="text-sm font-medium">{label}报告</p>
-            </button>
-          ))}
-        </div>
-      </section>
-
       {/* 日历热力图 */}
       <section className="card">
         <div className="flex items-center justify-between mb-4">
@@ -377,6 +353,30 @@ export default function StatsPage() {
           配速趋势
         </h2>
         <PaceTrendChart points={paceTrend} />
+      </section>
+
+      {/* 快速分享 */}
+      <section className="card">
+        <h2 className="text-sm font-medium mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+          快速分享
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: '本周', icon: '📊' },
+            { label: '本月', icon: '📈' },
+            { label: '本年', icon: '🎯' },
+          ].map(({ label, icon }) => (
+            <button
+              key={label}
+              onClick={() => setShareOpen(true)}
+              className="text-center py-4 rounded-xl transition-all hover:opacity-80"
+              style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+            >
+              <p className="text-2xl mb-1">{icon}</p>
+              <p className="text-sm font-medium">{label}报告</p>
+            </button>
+          ))}
+        </div>
       </section>
 
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} initialType="month" />

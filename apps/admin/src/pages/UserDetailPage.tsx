@@ -11,11 +11,20 @@ export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
+  const [runs, setRuns] = useState<any[]>([]);
+  const [goals, setGoals] = useState<any[]>([]);
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const [challenges, setChallenges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (api as any).get(`/users/${id}`).then((res: any) => {
-      setUser(res.data);
+      const d = res.data;
+      setUser(d.user);
+      setRuns(d.runs || []);
+      setGoals(d.goals || []);
+      setAchievements(d.achievements || []);
+      setChallenges(d.challenges || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
@@ -101,8 +110,8 @@ export default function UserDetailPage() {
   ];
 
   // 计算统计
-  const totalDistance = user.runs?.reduce((sum: number, r: any) => sum + r.distance, 0) || 0;
-  const totalDuration = user.runs?.reduce((sum: number, r: any) => sum + r.duration, 0) || 0;
+  const totalDistance = runs.reduce((sum: number, r: any) => sum + r.distance, 0);
+  const totalDuration = runs.reduce((sum: number, r: any) => sum + r.duration, 0);
 
   return (
     <div>
@@ -129,7 +138,7 @@ export default function UserDetailPage() {
           <Card size="small"><Statistic title="总跑量" value={totalDistance} precision={1} suffix="km" /></Card>
         </Col>
         <Col xs={8}>
-          <Card size="small"><Statistic title="跑步次数" value={user.runs?.length || 0} suffix="次" /></Card>
+          <Card size="small"><Statistic title="跑步次数" value={runs.length} suffix="次" /></Card>
         </Col>
         <Col xs={8}>
           <Card size="small"><Statistic title="总时长" value={Math.round(totalDuration / 60)} suffix="分钟" /></Card>
@@ -137,18 +146,18 @@ export default function UserDetailPage() {
       </Row>
 
       {/* 跑步记录 */}
-      <Card title={`跑步记录 (${user.runs?.length || 0})`} size="small" style={{ marginBottom: 16 }}>
-        <Table dataSource={user.runs || []} columns={runColumns} rowKey="id" pagination={{ pageSize: 10 }} size="small" />
+      <Card title={`跑步记录 (${runs.length})`} size="small" style={{ marginBottom: 16 }}>
+        <Table dataSource={runs} columns={runColumns} rowKey="id" pagination={{ pageSize: 10 }} size="small" />
       </Card>
 
       {/* 目标 */}
-      <Card title={`目标 (${user.goals?.length || 0})`} size="small" style={{ marginBottom: 16 }}>
-        <Table dataSource={user.goals || []} columns={goalColumns} rowKey="id" pagination={false} size="small" />
+      <Card title={`目标 (${goals.length})`} size="small" style={{ marginBottom: 16 }}>
+        <Table dataSource={goals} columns={goalColumns} rowKey="id" pagination={false} size="small" />
       </Card>
 
       {/* 成就 */}
-      <Card title={`已解锁成就 (${user.achievements?.length || 0})`} size="small">
-        <Table dataSource={user.achievements || []} columns={achievementColumns} rowKey="id" pagination={false} size="small" />
+      <Card title={`已解锁成就 (${achievements.length})`} size="small">
+        <Table dataSource={achievements} columns={achievementColumns} rowKey="id" pagination={false} size="small" />
       </Card>
     </div>
   );

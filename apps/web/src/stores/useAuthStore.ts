@@ -3,6 +3,7 @@ import api from '@/lib/api';
 
 interface User {
   id: string;
+  username: string;
   phone: string;
   nickname: string;
   avatar?: string | null;
@@ -14,8 +15,8 @@ interface User {
 interface AuthState {
   user: User | null;
   isLoggedIn: boolean;
-  login: (phone: string, password: string) => Promise<void>;
-  register: (phone: string, password: string, nickname: string) => Promise<void>;
+  login: (account: string, password: string) => Promise<void>;
+  register: (username: string, password: string, nickname?: string) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
@@ -32,8 +33,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   })(),
   isLoggedIn: !!localStorage.getItem('token'),
 
-  login: async (phone, password) => {
-    const res: any = await api.post('/auth/login', { phone, password });
+  login: async (account, password) => {
+    const res: any = await api.post('/auth/login', { account, password });
     const { user, token, refreshToken } = res.data;
     localStorage.setItem('token', token);
     localStorage.setItem('refreshToken', refreshToken);
@@ -41,8 +42,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user, isLoggedIn: true });
   },
 
-  register: async (phone, password, nickname) => {
-    const res: any = await api.post('/auth/register', { phone, password, nickname });
+  register: async (username, password, nickname) => {
+    const res: any = await api.post('/auth/register', { username, password, nickname });
     const { user, token, refreshToken } = res.data;
     localStorage.setItem('token', token);
     localStorage.setItem('refreshToken', refreshToken);
@@ -66,14 +67,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         localStorage.setItem('user', JSON.stringify(user));
         set({ user, isLoggedIn: true });
       } else {
-        // 返回数据无效，清除登录态
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         set({ user: null, isLoggedIn: false });
       }
     } catch {
-      // token 无效或过期，清除登录态
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');

@@ -78,9 +78,9 @@ export default function AchievementsPage() {
     },
     {
       title: '解锁人数',
-      dataIndex: 'unlockCount',
+      dataIndex: "unlockedCount",
       key: 'count',
-      sorter: (a: any, b: any) => a.unlockCount - b.unlockCount,
+      sorter: (a: any, b: any) => a.unlockedCount - b.unlockedCount,
     },
     {
       title: '解锁率',
@@ -103,7 +103,7 @@ export default function AchievementsPage() {
             <Card size="small">
               <Statistic
                 title="总成就数"
-                value={stats.total}
+                value={stats.totalAchievements}
                 prefix={<TrophyOutlined />}
               />
             </Card>
@@ -112,9 +112,9 @@ export default function AchievementsPage() {
             <Card size="small">
               <Statistic
                 title="最高解锁数（单用户）"
-                value={stats.maxUnlocked || 0}
+                value={stats.maxUnlockedPerUser || 0}
                 prefix={<UnlockOutlined />}
-                suffix={`/ ${stats.total}`}
+                suffix={`/ ${stats.totalAchievements}`}
               />
             </Card>
           </Col>

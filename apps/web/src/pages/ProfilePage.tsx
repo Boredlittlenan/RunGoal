@@ -9,6 +9,7 @@ export default function ProfilePage() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
+    username: user?.username ?? '',
     nickname: user?.nickname ?? '',
     weight:   user?.weight?.toString() ?? '',
     height:   user?.height?.toString() ?? '',
@@ -30,19 +31,17 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       const payload = {
+        username: form.username.trim() || undefined,
         nickname: form.nickname.trim() || undefined,
         weight:   form.weight ? Number(form.weight) : undefined,
         height:   form.height ? Number(form.height) : undefined,
       };
-      await api.put('/user/profile', payload);
-      updateUser({
-        nickname: payload.nickname ?? user?.nickname,
-        weight:   payload.weight   ?? user?.weight,
-        height:   payload.height   ?? user?.height,
-      });
+      const res: any = await api.put('/user/profile', payload);
+      const updatedUser = res.data;
+      updateUser(updatedUser);
       setEditing(false);
-    } catch {
-      alert('保存失败，请重试');
+    } catch (err: any) {
+      alert(err?.error || '保存失败，请重试');
     } finally {
       setSaving(false);
     }
@@ -72,6 +71,9 @@ export default function ProfilePage() {
         </div>
         <div>
           <h2 className="text-lg font-semibold">{user?.nickname ?? '跑者'}</h2>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            @{user?.username ?? ''}
+          </p>
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
             累计跑量 {(user as any)?.totalDistance ?? 0} km · 跑步 {(user as any)?.totalRuns ?? 0} 次
           </p>
@@ -82,6 +84,20 @@ export default function ProfilePage() {
       {editing && (
         <section className="card space-y-3">
           <p className="text-sm font-semibold">编辑资料</p>
+          <div>
+            <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>用户名</label>
+            <input
+              className="w-full mt-1 px-3 py-2 rounded-lg text-sm outline-none"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              placeholder="字母、数字、下划线和.，4-16 位"
+            />
+          </div>
           <div>
             <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>昵称</label>
             <input
@@ -142,6 +158,7 @@ export default function ProfilePage() {
               onClick={() => {
                 setEditing(false);
                 setForm({
+                  username: user?.username ?? '',
                   nickname: user?.nickname ?? '',
                   weight:   user?.weight?.toString() ?? '',
                   height:   user?.height?.toString() ?? '',
@@ -179,7 +196,7 @@ export default function ProfilePage() {
           >
             <span className="text-sm font-medium">编辑资料</span>
             <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              昵称、体重、头像 →
+              用户名、昵称、体重、头像 →
             </span>
           </div>
         )}
@@ -196,7 +213,7 @@ export default function ProfilePage() {
         <div className="flex items-center justify-between py-4">
           <span className="text-sm font-medium">关于 RunGoal</span>
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            v0.1.0
+            v1.0.0
           </span>
         </div>
       </section>

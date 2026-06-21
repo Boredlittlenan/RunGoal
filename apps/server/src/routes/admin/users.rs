@@ -31,6 +31,7 @@ struct UpdateUserRequest {
 #[derive(Debug, sqlx::FromRow)]
 struct UserListRow {
     id: String,
+    username: String,
     phone: String,
     nickname: String,
     avatar: Option<String>,
@@ -45,6 +46,7 @@ struct UserListRow {
 #[derive(Debug, sqlx::FromRow)]
 struct UserDetailRow {
     id: String,
+    username: String,
     phone: String,
     nickname: String,
     avatar: Option<String>,
@@ -144,7 +146,7 @@ async fn list(
         let pattern = format!("%{}%", search);
 
         let total: i64 = sqlx::query_scalar(
-            r#"SELECT COUNT(*) FROM "User" WHERE nickname ILIKE $1 OR phone ILIKE $1"#,
+            r#"SELECT COUNT(*) FROM "User" WHERE username ILIKE $1 OR nickname ILIKE $1 OR phone ILIKE $1"#,
         )
         .bind(&pattern)
         .fetch_one(&state.pool)
@@ -153,13 +155,13 @@ async fn list(
 
         let rows = sqlx::query_as::<_, UserListRow>(
             r#"
-            SELECT u.id, u.phone, u.nickname, u.avatar, u.weight, u.height, u."createdAt",
+            SELECT u.id, u.username, u.phone, u.nickname, u.avatar, u.weight, u.height, u."createdAt",
                    COALESCE(rc.cnt, 0) AS "runCount"
             FROM "User" u
             LEFT JOIN (
                 SELECT "userId", COUNT(*) AS cnt FROM "Run" GROUP BY "userId"
             ) rc ON rc."userId" = u.id
-            WHERE u.nickname ILIKE $1 OR u.phone ILIKE $1
+            WHERE u.username ILIKE $1 OR u.nickname ILIKE $1 OR u.phone ILIKE $1
             ORDER BY u."createdAt" DESC
             LIMIT $2 OFFSET $3
             "#,
@@ -180,7 +182,7 @@ async fn list(
 
         let rows = sqlx::query_as::<_, UserListRow>(
             r#"
-            SELECT u.id, u.phone, u.nickname, u.avatar, u.weight, u.height, u."createdAt",
+            SELECT u.id, u.username, u.phone, u.nickname, u.avatar, u.weight, u.height, u."createdAt",
                    COALESCE(rc.cnt, 0) AS "runCount"
             FROM "User" u
             LEFT JOIN (
@@ -204,6 +206,7 @@ async fn list(
         .map(|u| {
             json!({
                 "id": u.id,
+                "username": u.username,
                 "phone": u.phone,
                 "nickname": u.nickname,
                 "avatar": u.avatar,
@@ -234,7 +237,7 @@ async fn detail(
     // Fetch user
     let user = sqlx::query_as::<_, UserDetailRow>(
         r#"
-        SELECT id, phone, nickname, avatar, weight, height, theme, "createdAt", "updatedAt"
+        SELECT id, username, phone, nickname, avatar, weight, height, theme, "createdAt", "updatedAt"
         FROM "User"
         WHERE id = $1
         "#,
@@ -310,6 +313,7 @@ async fn detail(
         "data": {
             "user": {
                 "id": user.id,
+                "username": user.username,
                 "phone": user.phone,
                 "nickname": user.nickname,
                 "avatar": user.avatar,
@@ -382,7 +386,7 @@ async fn update(
             height    = COALESCE($4, height),
             "updatedAt" = NOW()
         WHERE id = $1
-        RETURNING id, phone, nickname, avatar, weight, height, theme, "createdAt", "updatedAt"
+        RETURNING id, username, phone, nickname, avatar, weight, height, theme, "createdAt", "updatedAt"
         "#,
     )
     .bind(&id)
@@ -397,6 +401,7 @@ async fn update(
             "success": true,
             "data": {
                 "id": user.id,
+                "username": user.username,
                 "phone": user.phone,
                 "nickname": user.nickname,
                 "avatar": user.avatar,

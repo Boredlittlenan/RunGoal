@@ -8,6 +8,7 @@ use sqlx::FromRow;
 #[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: String,
+    pub username: String,
     pub phone: String,
     pub nickname: String,
     pub avatar: Option<String>,
@@ -28,6 +29,7 @@ pub struct User {
 #[serde(rename_all = "camelCase")]
 pub struct UserPublic {
     pub id: String,
+    pub username: String,
     pub phone: String,
     pub nickname: String,
     pub avatar: Option<String>,
@@ -42,6 +44,7 @@ impl From<User> for UserPublic {
     fn from(user: User) -> Self {
         Self {
             id: user.id,
+            username: user.username,
             phone: user.phone,
             nickname: user.nickname,
             avatar: user.avatar,
@@ -58,6 +61,7 @@ impl From<&User> for UserPublic {
     fn from(user: &User) -> Self {
         Self {
             id: user.id.clone(),
+            username: user.username.clone(),
             phone: user.phone.clone(),
             nickname: user.nickname.clone(),
             avatar: user.avatar.clone(),
@@ -74,16 +78,17 @@ impl From<&User> for UserPublic {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterRequest {
-    pub phone: String,
+    pub username: String,
     pub password: String,
-    pub nickname: String,
+    pub nickname: Option<String>,
 }
 
 /// Request body for user login.
+/// The `account` field accepts either a username or a phone number.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
-    pub phone: String,
+    pub account: String,
     pub password: String,
 }
 
@@ -92,6 +97,7 @@ pub struct LoginRequest {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileUpdateRequest {
+    pub username: Option<String>,
     pub nickname: Option<String>,
     pub avatar: Option<String>,
     pub weight: Option<f64>,

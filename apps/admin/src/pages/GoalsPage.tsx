@@ -54,19 +54,28 @@ export default function GoalsPage() {
       render: (_: any, r: any) => `${r.targetValue} ${r.unit}`,
     },
     {
+      title: '进度',
+      dataIndex: 'progressPct',
+      key: 'progress',
+      render: (v: number) => `${v.toFixed(1)}%`,
+    },
+    {
       title: '周期',
       dataIndex: 'period',
       key: 'period',
       render: (v: string) => {
-        const map: Record<string, string> = { week: '周', month: '月', quarter: '季度', year: '年', custom: '自定义' };
+        const map: Record<string, string> = { week: '周', month: '月', quarter: '季度', year: '年', custom: '自定义', once: '一次性' };
         return map[v] || v;
       },
     },
     {
       title: '状态',
-      dataIndex: 'isActive',
-      key: 'active',
-      render: (v: boolean) => v ? <Tag color="green">进行中</Tag> : <Tag>已结束</Tag>,
+      key: 'status',
+      render: (_: any, r: any) => {
+        if (r.isCompleted) return <Tag color="blue">已完成</Tag>;
+        if (r.isActive) return <Tag color="green">进行中</Tag>;
+        return <Tag>已结束</Tag>;
+      },
     },
     {
       title: '创建时间',

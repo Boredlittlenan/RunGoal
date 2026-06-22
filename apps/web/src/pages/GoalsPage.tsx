@@ -105,6 +105,12 @@ export default function GoalsPage() {
             const g = item.goal;
             const meta = TYPE_META[g.type] ?? { label: g.type, color: '#888', icon: '🎯' };
             const pct = Math.min(item.progressPct, 100);
+            const isCompleted = pct >= 100;
+
+            // 状态标签：已完成 > 进行中 > 已暂停
+            const statusLabel = isCompleted ? '已完成' : g.isActive ? '进行中' : '已暂停';
+            const statusColor = isCompleted ? '#10b981' : g.isActive ? '#10b981' : 'var(--color-text-secondary)';
+
             return (
               <div key={g.id} className="card">
                 <div className="flex items-center gap-3">
@@ -113,7 +119,7 @@ export default function GoalsPage() {
                     className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
                     style={{ backgroundColor: `${meta.color}22` }}
                   >
-                    {meta.icon}
+                    {isCompleted ? '✅' : meta.icon}
                   </div>
 
                   {/* 主内容 */}
@@ -137,38 +143,36 @@ export default function GoalsPage() {
                   <div className="text-right shrink-0">
                     <span
                       className="text-xs font-medium"
-                      style={{ color: g.isActive ? '#10b981' : 'var(--color-text-secondary)' }}
+                      style={{ color: statusColor }}
                     >
-                      {g.isActive ? '进行中' : '已暂停'}
+                      {statusLabel}
                     </span>
                   </div>
                 </div>
 
                 {/* 进度条 */}
-                {g.isActive && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span style={{ color: 'var(--color-text-secondary)' }}>
-                        {item.currentValue.toFixed(1)} / {g.targetValue} {g.unit}
-                      </span>
-                      <span style={{ color: meta.color, fontWeight: 600 }}>
-                        {pct.toFixed(0)}%
-                      </span>
-                    </div>
-                    <div
-                      className="h-2 rounded-full overflow-hidden"
-                      style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-                    >
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${pct}%`,
-                          backgroundColor: pct >= 100 ? '#10b981' : meta.color,
-                        }}
-                      />
-                    </div>
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span style={{ color: 'var(--color-text-secondary)' }}>
+                      {item.currentValue.toFixed(1)} / {g.targetValue} {g.unit}
+                    </span>
+                    <span style={{ color: isCompleted ? '#10b981' : meta.color, fontWeight: 600 }}>
+                      {pct.toFixed(0)}%
+                    </span>
                   </div>
-                )}
+                  <div
+                    className="h-2 rounded-full overflow-hidden"
+                    style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: isCompleted ? '#10b981' : meta.color,
+                      }}
+                    />
+                  </div>
+                </div>
 
                 {/* 操作区 */}
                 <div className="flex justify-end mt-2 pt-2" style={{ borderTop: '1px solid var(--color-bg-secondary)' }}>

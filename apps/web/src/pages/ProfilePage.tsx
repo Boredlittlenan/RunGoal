@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import api from '@/lib/api';
@@ -6,6 +6,8 @@ import api from '@/lib/api';
 export default function ProfilePage() {
   const { theme, toggleTheme, setTheme } = useThemeStore();
   const { user, updateUser, logout } = useAuthStore();
+
+  const [stats, setStats] = useState({ totalDistance: 0, totalRuns: 0 });
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -15,6 +17,20 @@ export default function ProfilePage() {
     height:   user?.height?.toString() ?? '',
   });
   const [saving, setSaving] = useState(false);
+
+  // 获取累计跑量和次数（排除已归档记录）
+  useEffect(() => {
+    api
+      .get('/stats/overview')
+      .then((res: any) => {
+        const data = res?.data ?? res ?? {};
+        setStats({
+          totalDistance: data.totalDistance ?? 0,
+          totalRuns: data.totalRuns ?? 0,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   const handleThemeToggle = async () => {
     const nextTheme = theme === 'light' ? 'dark' : 'light';
@@ -75,7 +91,7 @@ export default function ProfilePage() {
             @{user?.username ?? ''}
           </p>
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            累计跑量 {(user as any)?.totalDistance ?? 0} km · 跑步 {(user as any)?.totalRuns ?? 0} 次
+            累计跑量 {stats.totalDistance.toFixed(1)} km · 跑步 {stats.totalRuns} 次
           </p>
         </div>
       </section>

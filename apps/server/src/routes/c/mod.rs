@@ -5,6 +5,7 @@ pub mod achievement;
 pub mod challenge;
 pub mod stats;
 pub mod user;
+pub mod ranking;
 
 use axum::Router;
 use crate::middleware::auth::AppState;
@@ -19,4 +20,5 @@ pub fn client_routes() -> Router<AppState> {
         .nest("/api/challenges", challenge::routes())
         .nest("/api/stats", stats::routes())
         .nest("/api/user", user::routes())
+        .nest("/api/ranking", ranking::routes())
 }

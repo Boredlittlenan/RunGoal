@@ -10,6 +10,7 @@ import GoalsPage from '@/pages/GoalsPage';
 import GoalCreatePage from '@/pages/GoalCreatePage';
 import AchievementsPage from '@/pages/AchievementsPage';
 import StatsPage from '@/pages/StatsPage';
+import RankingPage from '@/pages/RankingPage';
 import ProfilePage from '@/pages/ProfilePage';
 import LoginPage from '@/pages/LoginPage';
 import { useThemeStore } from '@/stores/useThemeStore';
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/goals/create" element={<GoalCreatePage />} />
         <Route path="/achievements" element={<AchievementsPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/ranking" element={<RankingPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 

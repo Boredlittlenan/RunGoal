@@ -17,6 +17,27 @@ interface RunRecord {
   avgPace: number | null;
 }
 
+interface GoalCard {
+  goal: {
+    id: string;
+    title: string;
+    type: string;
+    targetValue: number;
+    unit: string;
+    period: string;
+    isActive: boolean;
+  };
+  currentValue: number;
+  progressPct: number;
+}
+
+const GOAL_TYPE_META: Record<string, { color: string; icon: string }> = {
+  cumulative: { color: '#6366f1', icon: '📊' },
+  frequency:  { color: '#10b981', icon: '🔄' },
+  pace:       { color: '#f59e0b', icon: '⚡' },
+  distance:   { color: '#ef4444', icon: '🏃' },
+};
+
 function formatPace(pace: number): string {
   const minutes = Math.floor(pace);
   const seconds = Math.round((pace - minutes) * 60);
@@ -43,7 +64,8 @@ export default function HomePage() {
     totalDuration: 0,
   });
   const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
-  const [hasGoals, setHasGoals] = useState<boolean | null>(null);
+  const [activeGoals, setActiveGoals] = useState<GoalCard[]>([]);
+  const [goalsLoaded, setGoalsLoaded] = useState(false);
 
   useEffect(() => {
     // Fetch weekly stats
@@ -73,16 +95,18 @@ export default function HomePage() {
         setRecentRuns([]);
       });
 
-    // Check goals
+    // Fetch active goals with progress
     api
-      .get('/goals', { params: { pageSize: 1 } })
+      .get('/goals', { params: { isActive: true } })
       .then((res: any) => {
-        const data = res.data;
-        const list = data.list ?? data.records ?? data ?? [];
-        setHasGoals(Array.isArray(list) && list.length > 0);
+        const items = Array.isArray(res) ? res : res?.data ?? [];
+        setActiveGoals(Array.isArray(items) ? items : []);
       })
       .catch(() => {
-        setHasGoals(false);
+        setActiveGoals([]);
+      })
+      .finally(() => {
+        setGoalsLoaded(true);
       });
   }, []);
 
@@ -127,22 +151,80 @@ export default function HomePage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">进行中的目标</h2>
-          {hasGoals && (
+          {activeGoals.length > 0 && (
             <Link to="/goals" className="text-sm" style={{ color: 'var(--color-accent)' }}>
               查看全部
             </Link>
           )}
         </div>
-        {hasGoals === false ? (
+        {!goalsLoaded ? (
+          <div className="card text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="text-sm">目标加载中...</p>
+          </div>
+        ) : activeGoals.length === 0 ? (
           <div className="card text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
             <p className="text-sm">还没有设定目标</p>
             <Link to="/goals" className="btn-primary mt-4 inline-block text-sm">
               创建第一个目标
             </Link>
           </div>
-        ) : hasGoals === null ? null : (
-          <div className="card text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
-            <p className="text-sm">目标加载中...</p>
+        ) : (
+          <div className="space-y-2">
+            {activeGoals.map((item) => {
+              const g = item.goal;
+              const meta = GOAL_TYPE_META[g.type] ?? { color: '#888', icon: '🎯' };
+              const pct = Math.min(item.progressPct, 100);
+              const isCompleted = pct >= 100;
+
+              return (
+                <div key={g.id} className="card">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
+                      style={{ backgroundColor: `${meta.color}22` }}
+                    >
+                      {isCompleted ? '✅' : meta.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold truncate">{g.title}</span>
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
+                          style={{
+                            backgroundColor: isCompleted ? '#10b98122' : `${meta.color}22`,
+                            color: isCompleted ? '#10b981' : meta.color,
+                          }}
+                        >
+                          {isCompleted ? '已完成' : '进行中'}
+                        </span>
+                      </div>
+                      <div className="mt-1.5">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span style={{ color: 'var(--color-text-secondary)' }}>
+                            {item.currentValue.toFixed(1)} / {g.targetValue} {g.unit}
+                          </span>
+                          <span style={{ color: isCompleted ? '#10b981' : meta.color, fontWeight: 600 }}>
+                            {pct.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div
+                          className="h-1.5 rounded-full overflow-hidden"
+                          style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+                        >
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: isCompleted ? '#10b981' : meta.color,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

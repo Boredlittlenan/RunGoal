@@ -8,7 +8,6 @@ import RunRecordPage from '@/pages/RunRecordPage';
 import GpsRunPage from '@/pages/GpsRunPage';
 import GoalsPage from '@/pages/GoalsPage';
 import GoalCreatePage from '@/pages/GoalCreatePage';
-import AchievementsPage from '@/pages/AchievementsPage';
 import StatsPage from '@/pages/StatsPage';
 import RankingPage from '@/pages/RankingPage';
 import ProfilePage from '@/pages/ProfilePage';
@@ -47,7 +46,7 @@ export default function App() {
         <Route path="/runs/gps" element={<GpsRunPage />} />
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/goals/create" element={<GoalCreatePage />} />
-        <Route path="/achievements" element={<AchievementsPage />} />
+        <Route path="/achievements" element={<Navigate to="/profile" replace />} />
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/ranking" element={<RankingPage />} />
         <Route path="/profile" element={<ProfilePage />} />

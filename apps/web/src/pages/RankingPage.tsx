@@ -26,10 +26,6 @@ const PERIOD_TABS: { key: Period; label: string }[] = [
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-function formatDistance(km: number): string {
-  return km >= 1000 ? `${(km / 1000).toFixed(1)}k` : km.toFixed(1);
-}
-
 export default function RankingPage() {
   const [period, setPeriod] = useState<Period>('all');
   const [list, setList] = useState<RankItem[]>([]);
@@ -54,9 +50,6 @@ export default function RankingPage() {
   useEffect(() => {
     fetchRanking(period);
   }, [period, fetchRanking]);
-
-  const top3 = list.slice(0, 3);
-  const rest = list.slice(3);
 
   return (
     <div className="px-4 py-6 space-y-5 pb-28">
@@ -94,152 +87,50 @@ export default function RankingPage() {
         </div>
       ) : (
         <>
-          {/* 前三名领奖台 */}
-          {top3.length >= 3 ? (
-            <div className="flex items-end justify-center gap-3 pt-4 pb-2">
-              {/* 第二名 */}
-              <div className="flex flex-col items-center w-24">
-                <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mb-2"
-                  style={{ backgroundColor: 'var(--color-bg-secondary)', border: '3px solid #c0c0c0' }}
-                >
-                  {top3[1].avatar ? (
-                    <img src={top3[1].avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    '🏃'
-                  )}
-                </div>
-                <span className="text-xl">{MEDALS[1]}</span>
-                <span className="text-xs font-medium mt-1 truncate w-full text-center">{top3[1].nickname}</span>
-                <span className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {formatDistance(top3[1].totalDistance)} km
-                </span>
-                <div
-                  className="w-full rounded-t-lg mt-2 flex items-center justify-center text-white font-bold text-sm"
-                  style={{ height: 60, backgroundColor: '#a0aec0' }}
-                >
-                  2
-                </div>
-              </div>
-
-              {/* 第一名 */}
-              <div className="flex flex-col items-center w-24">
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-2"
-                  style={{ backgroundColor: 'var(--color-bg-secondary)', border: '3px solid #ffd700' }}
-                >
-                  {top3[0].avatar ? (
-                    <img src={top3[0].avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    '🏃'
-                  )}
-                </div>
-                <span className="text-xl">{MEDALS[0]}</span>
-                <span className="text-xs font-medium mt-1 truncate w-full text-center">{top3[0].nickname}</span>
-                <span className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {formatDistance(top3[0].totalDistance)} km
-                </span>
-                <div
-                  className="w-full rounded-t-lg mt-2 flex items-center justify-center text-white font-bold text-sm"
-                  style={{ height: 80, backgroundColor: '#ecc94b' }}
-                >
-                  1
-                </div>
-              </div>
-
-              {/* 第三名 */}
-              <div className="flex flex-col items-center w-24">
-                <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mb-2"
-                  style={{ backgroundColor: 'var(--color-bg-secondary)', border: '3px solid #cd7f32' }}
-                >
-                  {top3[2].avatar ? (
-                    <img src={top3[2].avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    '🏃'
-                  )}
-                </div>
-                <span className="text-xl">{MEDALS[2]}</span>
-                <span className="text-xs font-medium mt-1 truncate w-full text-center">{top3[2].nickname}</span>
-                <span className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {formatDistance(top3[2].totalDistance)} km
-                </span>
-                <div
-                  className="w-full rounded-t-lg mt-2 flex items-center justify-center text-white font-bold text-sm"
-                  style={{ height: 45, backgroundColor: '#c68642' }}
-                >
-                  3
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* 不足 3 人时用简单列表 */
-            <div className="space-y-2">
-              {top3.map((item, i) => (
-                <div key={item.userId} className="card flex items-center gap-3">
-                  <span className="text-xl w-8 text-center">{MEDALS[i]}</span>
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
-                    style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-                  >
-                    {item.avatar ? (
-                      <img src={item.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      '🏃'
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.nickname}</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                      {item.runCount} 次
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--color-accent)' }}>
-                      {item.totalDistance.toFixed(1)} km
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 第 4 名起 */}
-          {rest.length > 0 && (
-            <div className="space-y-1">
-              {rest.map((item) => (
-                <div key={item.userId} className="flex items-center gap-3 px-3 py-2.5">
+          <div className="space-y-2">
+            {list.map((item, i) => (
+              <div key={item.userId} className="card flex items-center gap-3">
+                {/* 排名 */}
+                {i < 3 ? (
+                  <span className="text-xl w-8 text-center shrink-0">{MEDALS[i]}</span>
+                ) : (
                   <span
-                    className="w-7 text-center text-sm font-semibold shrink-0"
+                    className="w-8 text-center text-sm font-bold shrink-0"
                     style={{ color: 'var(--color-text-secondary)' }}
                   >
                     {item.rank}
                   </span>
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0"
-                    style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-                  >
-                    {item.avatar ? (
-                      <img src={item.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      '🏃'
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.nickname}</p>
-                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                      {item.runCount} 次
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--color-accent)' }}>
-                      {item.totalDistance.toFixed(1)} km
-                    </p>
-                  </div>
+                )}
+                {/* 头像 */}
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    border: i === 0 ? '2px solid #ffd700' : i === 1 ? '2px solid #c0c0c0' : i === 2 ? '2px solid #cd7f32' : 'none',
+                  }}
+                >
+                  {item.avatar ? (
+                    <img src={item.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    '🏃'
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+                {/* 昵称 + 次数 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.nickname}</p>
+                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    {item.runCount} 次
+                  </p>
+                </div>
+                {/* 跑量 */}
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--color-accent)' }}>
+                    {item.totalDistance.toFixed(1)} km
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
 

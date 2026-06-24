@@ -179,7 +179,7 @@ async fn login(
     // Look up user by username or phone
     let user = sqlx::query_as::<_, User>(
         sqlx::AssertSqlSafe(format!(
-            r#"SELECT {} FROM "User" WHERE username = $1 OR phone = $1"#,
+            r#"SELECT {} FROM "User" WHERE username = $1 OR (phone = $1 AND phone <> '')"#,
             USER_COLS
         )),
     )

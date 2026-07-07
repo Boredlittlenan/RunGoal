@@ -119,3 +119,9 @@ pm2 start deploy/ecosystem.config.cjs
 
 - **C 端**: JWT Token（7 天有效）+ Refresh Token（30 天），使用 `JWT_SECRET` 签名
 - **Admin**: 独立 JWT Token（12 小时有效），使用 `ADMIN_JWT_SECRET` 签名，两套密钥互不干扰
+
+## License / 许可
+
+This project is source-available for non-commercial use only. Commercial use is not permitted without explicit written permission from Boredlittlenan. See [LICENSE.md](LICENSE.md).
+
+本项目源代码仅允许非商业用途查看、使用、修改和分发。未经 Boredlittlenan 明确书面许可，不允许商用。详见 [LICENSE.md](LICENSE.md)。

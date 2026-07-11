@@ -59,13 +59,12 @@ async fn list(
     let offset = (page - 1) * page_size;
 
     let (challenges, total) = if let Some(ref status) = params.status {
-        let total: i64 = sqlx::query_scalar(
-            r#"SELECT COUNT(*) FROM "Challenge" WHERE status = $1"#,
-        )
-        .bind(status)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap_or(0);
+        let total: i64 =
+            sqlx::query_scalar(r#"SELECT COUNT(*) FROM "Challenge" WHERE status = $1"#)
+                .bind(status)
+                .fetch_one(&state.pool)
+                .await
+                .unwrap_or(0);
 
         let rows = sqlx::query_as::<_, ChallengeRow>(
             r#"

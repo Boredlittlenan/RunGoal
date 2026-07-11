@@ -4,7 +4,7 @@ use axum::http::{HeaderValue, Method};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde_json::json;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -18,7 +18,7 @@ mod routes;
 mod services;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialise structured logging (respects RUST_LOG env var)
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -27,13 +27,14 @@ async fn main() {
         .init();
 
     // Load configuration from environment / .env file
-    let config = config::Config::from_env();
+    let config = config::Config::from_env()
+        .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
 
     // Create database connection pool
-    let pool = db::create_pool(&config).await;
+    let pool = db::create_pool(&config).await?;
 
     // Seed the default admin account if the Admin table is empty
-    routes::admin::auth::seed_admin(&pool).await;
+    routes::admin::auth::seed_admin(&pool, &config).await?;
 
     // Build shared application state
     let state = middleware::auth::AppState {
@@ -42,8 +43,13 @@ async fn main() {
     };
 
     // CORS — permissive during development; tighten origins in production
+    let allowed_origins = config
+        .cors_origins
+        .iter()
+        .map(|origin| origin.parse::<HeaderValue>())
+        .collect::<Result<Vec<_>, _>>()?;
     let cors = CorsLayer::new()
-        .allow_origin("*".parse::<HeaderValue>().unwrap())
+        .allow_origin(AllowOrigin::list(allowed_origins))
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -66,11 +72,10 @@ async fn main() {
     info!("RunGoal server v{}", env!("CARGO_PKG_VERSION"));
     info!("Server listening on {}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .expect("Failed to bind address");
+    let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app).await?;
+    Ok(())
 }
 
 async fn health_check() -> Json<serde_json::Value> {

@@ -105,7 +105,11 @@ async fn list_runs(
     .fetch_one(&state.pool)
     .await?;
 
-    let total_pages = if total == 0 { 0 } else { (total + page_size - 1) / page_size };
+    let total_pages = if total == 0 {
+        0
+    } else {
+        (total + page_size - 1) / page_size
+    };
 
     Ok(Json(json!({
         "success": true,
@@ -173,16 +177,14 @@ async fn create_run(
     .await?;
 
     // 3. Compute updated user stats (exclude archived)
-    let user_stats =
-        crate::services::stats::compute_user_stats(&state.pool, &auth.user_id).await?;
+    let user_stats = crate::services::stats::compute_user_stats(&state.pool, &auth.user_id).await?;
 
     // 4. Get already unlocked achievement keys
-    let existing_keys: Vec<String> = sqlx::query_scalar(
-        r#"SELECT "achievementKey" FROM "UserAchievement" WHERE "userId" = $1"#,
-    )
-    .bind(&auth.user_id)
-    .fetch_all(&state.pool)
-    .await?;
+    let existing_keys: Vec<String> =
+        sqlx::query_scalar(r#"SELECT "achievementKey" FROM "UserAchievement" WHERE "userId" = $1"#)
+            .bind(&auth.user_id)
+            .fetch_all(&state.pool)
+            .await?;
 
     // 5. Check achievements
     let newly_unlocked =
@@ -238,7 +240,8 @@ async fn create_run(
         };
         let completed = new_progress >= *target;
 
-        let completed_at_value: Option<chrono::NaiveDateTime> = if completed { Some(now) } else { None };
+        let completed_at_value: Option<chrono::NaiveDateTime> =
+            if completed { Some(now) } else { None };
 
         sqlx::query(
             r#"
@@ -480,7 +483,9 @@ async fn archive_run(
     .await?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound("Run not found or already archived".into()));
+        return Err(AppError::NotFound(
+            "Run not found or already archived".into(),
+        ));
     }
 
     // Remove related GoalRecords so archived runs don't count toward goals

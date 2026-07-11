@@ -26,7 +26,10 @@ pub fn routes() -> Router<AppState> {
 // ---------------------------------------------------------------------------
 
 /// Fetch all goal records for a single goal.
-async fn fetch_goal_records(pool: &sqlx::PgPool, goal_id: &str) -> Result<Vec<GoalRecord>, AppError> {
+async fn fetch_goal_records(
+    pool: &sqlx::PgPool,
+    goal_id: &str,
+) -> Result<Vec<GoalRecord>, AppError> {
     let records = sqlx::query_as::<_, GoalRecord>(
         r#"
         SELECT id, "goalId", "runId", value, "createdAt"
@@ -50,15 +53,16 @@ fn compute_progress(goal: &Goal, records: &[GoalRecord]) -> (f64, f64) {
             .map(|r| r.value)
             .fold(f64::INFINITY, f64::min),
         // 距离型（单次达标）：取最大单次距离
-        "distance" => records
-            .iter()
-            .map(|r| r.value)
-            .fold(0.0_f64, f64::max),
+        "distance" => records.iter().map(|r| r.value).fold(0.0_f64, f64::max),
         // 累计型 / 频次型 / 默认：求和
         _ => records.iter().map(|r| r.value).sum(),
     };
     // pace 目标如果无记录则 current_value 为 0
-    let current_value = if records.is_empty() { 0.0 } else { current_value };
+    let current_value = if records.is_empty() {
+        0.0
+    } else {
+        current_value
+    };
 
     let progress_pct = if goal.target_value > 0.0 {
         let pct = match goal.goal_type.as_str() {
@@ -303,8 +307,14 @@ async fn update_goal(
     let target_value = body.target_value.unwrap_or(existing.target_value);
     let unit = body.unit.as_deref().unwrap_or(&existing.unit);
     let period = body.period.as_deref().unwrap_or(&existing.period);
-    let start_date = body.start_date.map(|d| d.and_hms_opt(0, 0, 0).unwrap()).unwrap_or(existing.start_date);
-    let end_date = body.end_date.map(|d| d.and_hms_opt(0, 0, 0).unwrap()).or(existing.end_date);
+    let start_date = body
+        .start_date
+        .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+        .unwrap_or(existing.start_date);
+    let end_date = body
+        .end_date
+        .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+        .or(existing.end_date);
     let is_active = body.is_active.unwrap_or(existing.is_active);
     let now = Utc::now().naive_utc();
 

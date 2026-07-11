@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    routing::put,
-    Json, Router,
-};
+use axum::{extract::State, routing::put, Json, Router};
 use chrono::Utc;
 use regex::Regex;
 use serde_json::json;
@@ -34,9 +30,10 @@ async fn update_profile(
     Json(body): Json<ProfileUpdateRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Fetch current user to merge fields
-    let existing = sqlx::query_as::<_, User>(
-        sqlx::AssertSqlSafe(format!(r#"SELECT {} FROM "User" WHERE id = $1"#, USER_COLS)),
-    )
+    let existing = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(format!(
+        r#"SELECT {} FROM "User" WHERE id = $1"#,
+        USER_COLS
+    )))
     .bind(&auth.user_id)
     .fetch_optional(&state.pool)
     .await?
@@ -130,15 +127,13 @@ async fn update_theme(
 
     let now = Utc::now().naive_utc();
 
-    let user = sqlx::query_as::<_, User>(
-        sqlx::AssertSqlSafe(format!(
-            r#"UPDATE "User"
+    let user = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(format!(
+        r#"UPDATE "User"
             SET theme = $2, "updatedAt" = $3
             WHERE id = $1
             RETURNING {}"#,
-            USER_COLS
-        )),
-    )
+        USER_COLS
+    )))
     .bind(&auth.user_id)
     .bind(&body.theme)
     .bind(now)

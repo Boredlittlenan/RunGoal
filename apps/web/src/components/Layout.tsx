@@ -3,9 +3,11 @@ import BottomNav from './BottomNav';
 
 export default function Layout() {
   return (
-    <div className="flex flex-col h-full">
-      <main className="flex-1 overflow-y-auto safe-area-top">
-        <Outlet />
+    <div className="app-shell">
+      <main className="app-shell__content safe-area-top">
+        <div className="page-frame">
+          <Outlet />
+        </div>
       </main>
       <BottomNav />
     </div>

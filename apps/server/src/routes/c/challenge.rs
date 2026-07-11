@@ -187,12 +187,11 @@ async fn delete_challenge(
     auth: AuthUser,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let result =
-        sqlx::query(r#"DELETE FROM "Challenge" WHERE id = $1 AND "userId" = $2"#)
-            .bind(&id)
-            .bind(&auth.user_id)
-            .execute(&state.pool)
-            .await?;
+    let result = sqlx::query(r#"DELETE FROM "Challenge" WHERE id = $1 AND "userId" = $2"#)
+        .bind(&id)
+        .bind(&auth.user_id)
+        .execute(&state.pool)
+        .await?;
 
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound("Challenge not found".into()));

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, theme, Button } from 'antd';
 import {
   DashboardOutlined,
@@ -24,11 +24,24 @@ const menuItems = [
   { key: '/challenges', icon: <ThunderboltOutlined />, label: '挑战管理' },
 ];
 
+const pageTitles: Record<string, { eyebrow: string; title: string }> = {
+  '/': { eyebrow: 'Overview', title: '数据总览' },
+  '/users': { eyebrow: 'People', title: '用户管理' },
+  '/runs': { eyebrow: 'Activity', title: '跑步记录' },
+  '/goals': { eyebrow: 'Targets', title: '目标管理' },
+  '/achievements': { eyebrow: 'Motivation', title: '成就系统' },
+  '/challenges': { eyebrow: 'Campaigns', title: '挑战管理' },
+};
+
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { token: { colorBgContainer, borderRadiusLG } } = theme.useToken();
+
+  if (!localStorage.getItem('admin_token')) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
@@ -39,23 +52,13 @@ export default function AdminLayout() {
   const selectedKey = menuItems.find(
     (item) => location.pathname === item.key || (item.key !== '/' && location.pathname.startsWith(item.key))
   )?.key || '/';
+  const pageMeta = pageTitles[selectedKey] ?? pageTitles['/'];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg">
-        <div
-          style={{
-            height: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: collapsed ? 16 : 18,
-            borderBottom: '1px solid rgba(255,255,255,0.1)',
-          }}
-        >
-          {collapsed ? 'RG' : 'RunGoal Admin'}
+    <Layout className="admin-shell">
+      <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg" width={232} className="admin-sider">
+        <div className={`admin-brand ${collapsed ? 'is-collapsed' : ''}`}>
+          <span>RG</span>{!collapsed && <div><strong>RunGoal</strong><small>CONTROL CENTER</small></div>}
         </div>
         <Menu
           theme="dark"
@@ -66,36 +69,29 @@ export default function AdminLayout() {
         />
       </Sider>
 
-      <Layout>
+      <Layout className="admin-workspace">
         <Header
+          className="admin-header"
           style={{
-            padding: '0 24px',
             background: colorBgContainer,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #f0f0f0',
           }}
         >
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-          />
-          <Button type="text" icon={<LogoutOutlined />} onClick={handleLogout}>
-            退出
-          </Button>
+          <div className="admin-header__left">
+            <Button type="text" className="admin-collapse" aria-label={collapsed ? '展开导航' : '收起导航'}
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed(!collapsed)} />
+            <div><small>{pageMeta.eyebrow}</small><strong>{pageMeta.title}</strong></div>
+          </div>
+          <div className="admin-header__right"><span className="admin-status"><i /> 服务运行中</span><Button type="text" icon={<LogoutOutlined />} onClick={handleLogout}>退出</Button></div>
         </Header>
 
         <Content
           style={{
-            margin: 24,
+            margin: 20,
             padding: 24,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,
-            minHeight: 280,
-            overflow: 'auto',
           }}
+          className="admin-content"
         >
           <Outlet />
         </Content>

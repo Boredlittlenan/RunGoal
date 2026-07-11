@@ -1,14 +1,14 @@
-pub mod auth;
-pub mod run;
-pub mod goal;
 pub mod achievement;
+pub mod auth;
 pub mod challenge;
+pub mod goal;
+pub mod ranking;
+pub mod run;
 pub mod stats;
 pub mod user;
-pub mod ranking;
 
-use axum::Router;
 use crate::middleware::auth::AppState;
+use axum::Router;
 
 /// Assembles all client-facing (C-side) routes under their respective prefixes.
 pub fn client_routes() -> Router<AppState> {

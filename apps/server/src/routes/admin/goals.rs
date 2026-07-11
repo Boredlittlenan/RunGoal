@@ -67,11 +67,18 @@ async fn fetch_goal_records(pool: &sqlx::PgPool, goal_id: &str) -> Vec<GoalRecor
 
 fn compute_progress(goal_type: &str, target_value: f64, records: &[GoalRecord]) -> (f64, f64) {
     let current_value: f64 = match goal_type {
-        "pace" => records.iter().map(|r| r.value).fold(f64::INFINITY, f64::min),
+        "pace" => records
+            .iter()
+            .map(|r| r.value)
+            .fold(f64::INFINITY, f64::min),
         "distance" => records.iter().map(|r| r.value).fold(0.0_f64, f64::max),
         _ => records.iter().map(|r| r.value).sum(),
     };
-    let current_value = if records.is_empty() { 0.0 } else { current_value };
+    let current_value = if records.is_empty() {
+        0.0
+    } else {
+        current_value
+    };
 
     let progress_pct = if target_value > 0.0 {
         match goal_type {
@@ -104,13 +111,11 @@ async fn list(
     let offset = (page - 1) * page_size;
 
     let (goals, total) = if let Some(ref goal_type) = params.goal_type {
-        let total: i64 = sqlx::query_scalar(
-            r#"SELECT COUNT(*) FROM "Goal" WHERE type = $1"#,
-        )
-        .bind(goal_type)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap_or(0);
+        let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "Goal" WHERE type = $1"#)
+            .bind(goal_type)
+            .fetch_one(&state.pool)
+            .await
+            .unwrap_or(0);
 
         let rows = sqlx::query_as::<_, GoalRow>(
             r#"
@@ -164,7 +169,8 @@ async fn list(
     let mut data: Vec<Value> = Vec::with_capacity(goals.len());
     for g in &goals {
         let records = fetch_goal_records(&state.pool, &g.id).await;
-        let (_current_value, progress_pct) = compute_progress(&g.goal_type, g.target_value, &records);
+        let (_current_value, progress_pct) =
+            compute_progress(&g.goal_type, g.target_value, &records);
         let is_completed = progress_pct >= 100.0;
 
         data.push(json!({

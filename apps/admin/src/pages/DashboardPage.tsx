@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Col, Row, Statistic, Table, Tag, Typography, Space, Spin } from 'antd';
+import { Card, Col, Row, Statistic, Table, Tag, Space, Spin } from 'antd';
 import {
   UserOutlined,
   CarryOutOutlined,
@@ -8,8 +8,6 @@ import {
 } from '@ant-design/icons';
 import api from '../lib/api';
 import dayjs from 'dayjs';
-
-const { Title } = Typography;
 
 interface DashboardData {
   totalUsers: number;
@@ -92,8 +90,6 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <Title level={4} style={{ marginBottom: 24 }}>数据总览</Title>
-
       {/* 指标卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={12} sm={6}>

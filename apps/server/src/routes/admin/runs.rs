@@ -108,13 +108,11 @@ async fn list(
     let offset = (page - 1) * page_size;
 
     let (runs, total) = if let Some(ref source) = params.source {
-        let total: i64 = sqlx::query_scalar(
-            r#"SELECT COUNT(*) FROM "Run" WHERE source = $1"#,
-        )
-        .bind(source)
-        .fetch_one(&state.pool)
-        .await
-        .unwrap_or(0);
+        let total: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "Run" WHERE source = $1"#)
+            .bind(source)
+            .fetch_one(&state.pool)
+            .await
+            .unwrap_or(0);
 
         let rows = sqlx::query_as::<_, RunListRow>(
             r#"

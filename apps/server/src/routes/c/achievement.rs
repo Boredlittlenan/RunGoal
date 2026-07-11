@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::State, routing::get, Json, Router};
 use chrono::NaiveDateTime;
 use serde_json::json;
 
@@ -87,15 +83,20 @@ async fn achievement_stats(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let unlocked: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(*) FROM "UserAchievement" WHERE "userId" = $1"#,
-    )
-    .bind(&auth.user_id)
-    .fetch_one(&state.pool)
-    .await?;
+    let unlocked: i64 =
+        sqlx::query_scalar(r#"SELECT COUNT(*) FROM "UserAchievement" WHERE "userId" = $1"#)
+            .bind(&auth.user_id)
+            .fetch_one(&state.pool)
+            .await?;
 
     let total = ACHIEVEMENTS.len() as i64;
-    let rate = if total > 0 { (unlocked as f64 / total as f64 * 100.0).round() as i64 } else { 0 };
+    let rate = if total > 0 {
+        (unlocked as f64 / total as f64 * 100.0).round() as i64
+    } else {
+        0
+    };
 
-    Ok(Json(json!({ "success": true, "data": { "unlocked": unlocked, "total": total, "rate": rate } })))
+    Ok(Json(
+        json!({ "success": true, "data": { "unlocked": unlocked, "total": total, "rate": rate } }),
+    ))
 }

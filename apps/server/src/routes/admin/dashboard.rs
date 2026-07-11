@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::State, routing::get, Json, Router};
 use serde_json::{json, Value};
 
 use crate::middleware::auth::{AppState, AuthAdmin};
@@ -31,36 +27,28 @@ struct RecentUserRow {
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
-async fn stats(
-    _admin: AuthAdmin,
-    State(state): State<AppState>,
-) -> Json<Value> {
+async fn stats(_admin: AuthAdmin, State(state): State<AppState>) -> Json<Value> {
     // ── Scalar counters (run concurrently) ──────────────────────────────────
 
-    let total_users_fut = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM "User""#,
-    )
-    .fetch_one(&state.pool);
+    let total_users_fut =
+        sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM "User""#).fetch_one(&state.pool);
 
     let today_new_users_fut = sqlx::query_scalar::<_, i64>(
         r#"SELECT COUNT(*) FROM "User" WHERE "createdAt" >= CURRENT_DATE"#,
     )
     .fetch_one(&state.pool);
 
-    let total_runs_fut = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM "Run""#,
-    )
-    .fetch_one(&state.pool);
+    let total_runs_fut =
+        sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM "Run""#).fetch_one(&state.pool);
 
     let today_runs_fut = sqlx::query_scalar::<_, i64>(
         r#"SELECT COUNT(*) FROM "Run" WHERE "startedAt" >= CURRENT_DATE"#,
     )
     .fetch_one(&state.pool);
 
-    let total_distance_fut = sqlx::query_scalar::<_, Option<f64>>(
-        r#"SELECT COALESCE(SUM(distance), 0) FROM "Run""#,
-    )
-    .fetch_one(&state.pool);
+    let total_distance_fut =
+        sqlx::query_scalar::<_, Option<f64>>(r#"SELECT COALESCE(SUM(distance), 0) FROM "Run""#)
+            .fetch_one(&state.pool);
 
     let today_distance_fut = sqlx::query_scalar::<_, Option<f64>>(
         r#"SELECT COALESCE(SUM(distance), 0) FROM "Run" WHERE "startedAt" >= CURRENT_DATE"#,

@@ -1,20 +1,30 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import AuthGuard from '@/components/AuthGuard';
-import HomePage from '@/pages/HomePage';
-import RunListPage from '@/pages/RunListPage';
-import RunRecordPage from '@/pages/RunRecordPage';
-import GpsRunPage from '@/pages/GpsRunPage';
-import GoalsPage from '@/pages/GoalsPage';
-import GoalCreatePage from '@/pages/GoalCreatePage';
-import AchievementsPage from '@/pages/AchievementsPage';
-import StatsPage from '@/pages/StatsPage';
-import RankingPage from '@/pages/RankingPage';
-import ProfilePage from '@/pages/ProfilePage';
-import LoginPage from '@/pages/LoginPage';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { useAuthStore } from '@/stores/useAuthStore';
+
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const RunListPage = lazy(() => import('@/pages/RunListPage'));
+const RunRecordPage = lazy(() => import('@/pages/RunRecordPage'));
+const GpsRunPage = lazy(() => import('@/pages/GpsRunPage'));
+const GoalsPage = lazy(() => import('@/pages/GoalsPage'));
+const GoalCreatePage = lazy(() => import('@/pages/GoalCreatePage'));
+const AchievementsPage = lazy(() => import('@/pages/AchievementsPage'));
+const StatsPage = lazy(() => import('@/pages/StatsPage'));
+const RankingPage = lazy(() => import('@/pages/RankingPage'));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+
+function RouteLoader() {
+  return (
+    <div className="route-loader" role="status" aria-live="polite">
+      <span className="route-loader__mark">RG</span>
+      <span>正在准备你的跑步数据</span>
+    </div>
+  );
+}
 
 export default function App() {
   const { theme } = useThemeStore();
@@ -29,7 +39,8 @@ export default function App() {
   }, [isLoggedIn, fetchUser]);
 
   return (
-    <Routes>
+    <Suspense fallback={<RouteLoader />}>
+      <Routes>
       {/* 登录页不需要底部导航 */}
       <Route path="/login" element={<LoginPage />} />
 
@@ -55,6 +66,7 @@ export default function App() {
 
       {/* 兜底重定向 */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

@@ -1,0 +1,105 @@
+CREATE TABLE IF NOT EXISTS "User" (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  phone TEXT NOT NULL DEFAULT '',
+  nickname TEXT NOT NULL,
+  avatar TEXT,
+  weight DOUBLE PRECISION,
+  height DOUBLE PRECISION,
+  "passwordHash" TEXT NOT NULL,
+  theme TEXT NOT NULL DEFAULT 'system',
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "User_username_key" ON "User" (username);
+CREATE UNIQUE INDEX IF NOT EXISTS "User_phone_nonempty_key" ON "User" (phone) WHERE phone <> '';
+
+CREATE TABLE IF NOT EXISTS "Run" (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  distance DOUBLE PRECISION NOT NULL CHECK (distance > 0),
+  duration INTEGER NOT NULL CHECK (duration > 0),
+  "avgPace" DOUBLE PRECISION,
+  source TEXT NOT NULL CHECK (source IN ('manual', 'gps')),
+  "trackPoints" JSONB,
+  calories DOUBLE PRECISION,
+  feeling INTEGER CHECK (feeling BETWEEN 1 AND 5),
+  note TEXT,
+  weather TEXT,
+  "startedAt" TIMESTAMP NOT NULL,
+  "endedAt" TIMESTAMP,
+  "archivedAt" TIMESTAMP,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS "Run_user_started_idx" ON "Run" ("userId", "startedAt" DESC);
+CREATE INDEX IF NOT EXISTS "Run_user_archived_idx" ON "Run" ("userId", "archivedAt");
+
+CREATE TABLE IF NOT EXISTS "Goal" (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL,
+  "targetValue" DOUBLE PRECISION NOT NULL CHECK ("targetValue" > 0),
+  unit TEXT NOT NULL,
+  period TEXT NOT NULL,
+  "startDate" TIMESTAMP NOT NULL,
+  "endDate" TIMESTAMP,
+  "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS "Goal_user_active_idx" ON "Goal" ("userId", "isActive");
+
+CREATE TABLE IF NOT EXISTS "GoalRecord" (
+  id TEXT PRIMARY KEY,
+  "goalId" TEXT NOT NULL REFERENCES "Goal"(id) ON DELETE CASCADE,
+  "runId" TEXT NOT NULL REFERENCES "Run"(id) ON DELETE CASCADE,
+  value DOUBLE PRECISION NOT NULL,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE ("goalId", "runId")
+);
+
+CREATE TABLE IF NOT EXISTS "UserAchievement" (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  "achievementKey" TEXT NOT NULL,
+  "unlockedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "unlockedByRun" TEXT REFERENCES "Run"(id) ON DELETE SET NULL,
+  UNIQUE ("userId", "achievementKey")
+);
+
+CREATE INDEX IF NOT EXISTS "UserAchievement_user_idx" ON "UserAchievement" ("userId", "unlockedAt" DESC);
+
+CREATE TABLE IF NOT EXISTS "Challenge" (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL,
+  "targetValue" DOUBLE PRECISION NOT NULL CHECK ("targetValue" > 0),
+  unit TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  "startDate" TIMESTAMP NOT NULL,
+  "endDate" TIMESTAMP NOT NULL,
+  progress DOUBLE PRECISION NOT NULL DEFAULT 0,
+  "completedAt" TIMESTAMP,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS "Challenge_user_status_idx" ON "Challenge" ("userId", status);
+
+CREATE TABLE IF NOT EXISTS "Admin" (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  "passwordHash" TEXT NOT NULL,
+  nickname TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'admin',
+  "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+  "lastLoginAt" TIMESTAMP,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

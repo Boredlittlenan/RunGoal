@@ -70,25 +70,21 @@ const navItems = [
 
 export default function BottomNav() {
   return (
-    <nav className="safe-area-bottom border-t" style={{ borderColor: 'var(--color-border)' }}>
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
+    <nav className="bottom-nav safe-area-bottom" aria-label="主要导航">
+      <div className="bottom-nav__inner">
         {navItems.map(({ to, label, icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex flex-col items-center justify-center gap-1 w-full h-full transition-colors duration-200 ${
-                isActive ? '' : 'opacity-50'
-              }`
+              `bottom-nav__item ${isActive ? 'is-active' : ''}`
             }
-            style={({ isActive }) => ({
-              color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-            })}
+            aria-label={label}
           >
             {({ isActive }) => (
               <>
-                {icon(isActive)}
-                <span className="text-[10px] font-medium">{label}</span>
+                <span className="bottom-nav__icon">{icon(isActive)}</span>
+                <span className="bottom-nav__label">{label}</span>
               </>
             )}
           </NavLink>

@@ -7,7 +7,7 @@ dist/
 .env
 .env.*
 !.env.example
-!deploy/.env.production
+!deploy/.env.production.example
 
 # Rust
 apps/server/target/
@@ -26,3 +26,7 @@ Thumbs.db
 # 构建产物
 *.log
 coverage/
+
+# Local browser QA artifacts
+.playwright-cli/
+output/

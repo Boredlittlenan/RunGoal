@@ -10,7 +10,8 @@ use serde_json::{json, Value};
 use sqlx::PgPool;
 use tracing::info;
 
-use crate::middleware::auth::{AppState, AuthAdmin, AdminClaims};
+use crate::config::Config;
+use crate::middleware::auth::{AdminClaims, AppState, AuthAdmin};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,7 +33,11 @@ struct AdminRow {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-fn sign_token(admin_id: &str, role: &str, secret: &str) -> Result<String, jsonwebtoken::errors::Error> {
+fn sign_token(
+    admin_id: &str,
+    role: &str,
+    secret: &str,
+) -> Result<String, jsonwebtoken::errors::Error> {
     let now = Utc::now();
     let claims = AdminClaims {
         admin_id: admin_id.to_string(),
@@ -40,15 +45,16 @@ fn sign_token(admin_id: &str, role: &str, secret: &str) -> Result<String, jsonwe
         iat: now.timestamp() as usize,
         exp: (now + Duration::hours(12)).timestamp() as usize,
     };
-    encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
-async fn login(
-    State(state): State<AppState>,
-    Json(body): Json<AdminLoginRequest>,
-) -> Json<Value> {
+async fn login(State(state): State<AppState>, Json(body): Json<AdminLoginRequest>) -> Json<Value> {
     let admin = sqlx::query_as::<_, AdminRow>(
         r#"
         SELECT id, username, "passwordHash", nickname, role
@@ -86,12 +92,10 @@ async fn login(
     }
 
     // Update lastLoginAt
-    if let Err(e) = sqlx::query(
-        r#"UPDATE "Admin" SET "lastLoginAt" = NOW() WHERE id = $1"#,
-    )
-    .bind(&admin.id)
-    .execute(&state.pool)
-    .await
+    if let Err(e) = sqlx::query(r#"UPDATE "Admin" SET "lastLoginAt" = NOW() WHERE id = $1"#)
+        .bind(&admin.id)
+        .execute(&state.pool)
+        .await
     {
         tracing::warn!("failed to update lastLoginAt: {}", e);
     }
@@ -135,31 +139,36 @@ async fn me(admin: AuthAdmin) -> Json<Value> {
 
 // ─── Seed ────────────────────────────────────────────────────────────────────
 
-pub async fn seed_admin(pool: &PgPool) {
+pub async fn seed_admin(pool: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let count: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "Admin""#)
         .fetch_one(pool)
-        .await
-        .expect("failed to count admins");
+        .await?;
 
     if count == 0 {
-        let hash = bcrypt::hash("admin123", 12).expect("failed to hash password");
+        let (Some(username), Some(password)) =
+            (&config.admin_seed_username, &config.admin_seed_password)
+        else {
+            tracing::warn!("No admin account exists. Set ADMIN_SEED_USERNAME and ADMIN_SEED_PASSWORD once to create the initial account");
+            return Ok(());
+        };
+        let hash = bcrypt::hash(password, 12)?;
         sqlx::query(
             r#"
             INSERT INTO "Admin" (id, username, "passwordHash", nickname, role, "isActive")
             VALUES ($1, $2, $3, $4, $5, true)
             "#,
         )
-        .bind(format!("seed-{}", Utc::now().timestamp_millis()))
-        .bind("admin")
+        .bind(ulid::Ulid::new().to_string())
+        .bind(username)
         .bind(&hash)
         .bind("管理员")
         .bind("superadmin")
         .execute(pool)
-        .await
-        .expect("failed to seed admin");
+        .await?;
 
-        info!("Seeded default admin account: admin / admin123");
+        info!(username = %username, "Seeded initial admin account");
     }
+    Ok(())
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────

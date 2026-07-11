@@ -67,9 +67,8 @@ impl FromRequestParts<AppState> for AuthUser {
 
         let secret = state.config.jwt_secret.clone();
 
-        let header = auth_header.ok_or_else(|| {
-            AppError::Unauthorized("Missing Authorization header".to_string())
-        })?;
+        let header = auth_header
+            .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".to_string()))?;
 
         let token = header
             .strip_prefix("Bearer ")
@@ -79,9 +78,7 @@ impl FromRequestParts<AppState> for AuthUser {
         let key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
 
         let token_data = jsonwebtoken::decode::<UserClaims>(token, &key, &validation)
-            .map_err(|e| {
-                AppError::Unauthorized(format!("Invalid or expired token: {}", e))
-            })?;
+            .map_err(|e| AppError::Unauthorized(format!("Invalid or expired token: {}", e)))?;
 
         Ok(AuthUser {
             user_id: token_data.claims.user_id,
@@ -118,9 +115,8 @@ impl FromRequestParts<AppState> for AuthAdmin {
 
         let secret = state.config.admin_jwt_secret.clone();
 
-        let header = auth_header.ok_or_else(|| {
-            AppError::Unauthorized("Missing Authorization header".to_string())
-        })?;
+        let header = auth_header
+            .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".to_string()))?;
 
         let token = header
             .strip_prefix("Bearer ")
@@ -129,8 +125,8 @@ impl FromRequestParts<AppState> for AuthAdmin {
         let validation = jsonwebtoken::Validation::default();
         let key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
 
-        let token_data = jsonwebtoken::decode::<AdminClaims>(token, &key, &validation)
-            .map_err(|e| {
+        let token_data =
+            jsonwebtoken::decode::<AdminClaims>(token, &key, &validation).map_err(|e| {
                 AppError::Unauthorized(format!("Invalid or expired admin token: {}", e))
             })?;
 

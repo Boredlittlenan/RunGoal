@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    routing::get,
-    Json, Router,
-};
+use axum::{extract::State, routing::get, Json, Router};
 use serde_json::{json, Value};
 
 use crate::middleware::auth::{AppState, AuthAdmin};
@@ -19,10 +15,7 @@ struct UnlockCountRow {
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
-async fn list(
-    _admin: AuthAdmin,
-    State(state): State<AppState>,
-) -> Json<Value> {
+async fn list(_admin: AuthAdmin, State(state): State<AppState>) -> Json<Value> {
     let total_users: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "User""#)
         .fetch_one(&state.pool)
         .await
@@ -77,24 +70,19 @@ async fn list(
     }))
 }
 
-async fn summary_stats(
-    _admin: AuthAdmin,
-    State(state): State<AppState>,
-) -> Json<Value> {
+async fn summary_stats(_admin: AuthAdmin, State(state): State<AppState>) -> Json<Value> {
     let total_achievements = ACHIEVEMENTS.len() as i64;
 
-    let total_unlock_records: i64 =
-        sqlx::query_scalar(r#"SELECT COUNT(*) FROM "UserAchievement""#)
+    let total_unlock_records: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "UserAchievement""#)
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or(0);
+
+    let users_with_achievements: i64 =
+        sqlx::query_scalar(r#"SELECT COUNT(DISTINCT "userId") FROM "UserAchievement""#)
             .fetch_one(&state.pool)
             .await
             .unwrap_or(0);
-
-    let users_with_achievements: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(DISTINCT "userId") FROM "UserAchievement""#,
-    )
-    .fetch_one(&state.pool)
-    .await
-    .unwrap_or(0);
 
     let max_unlocked_per_user: Option<i64> = sqlx::query_scalar(
         r#"

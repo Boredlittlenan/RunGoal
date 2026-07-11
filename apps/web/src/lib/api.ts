@@ -1,58 +1,95 @@
-import axios from 'axios';
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 15000,
-});
+export interface ApiEnvelope<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+}
 
-// 请求拦截：自动带 token
+interface RetryableRequest extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+interface TokenPair {
+  token: string;
+  refreshToken: string;
+}
+
+const api = axios.create({ baseURL: '/api', timeout: 15000 });
+let refreshRequest: Promise<TokenPair> | null = null;
+
+function clearSession() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+}
+
+function redirectToLogin() {
+  clearSession();
+  if (window.location.pathname !== '/login') window.location.assign('/login');
+}
+
+function requestTokenRefresh(refreshToken: string): Promise<TokenPair> {
+  if (!refreshRequest) {
+    refreshRequest = axios
+      .post<ApiEnvelope<TokenPair>>('/api/auth/refresh', { refreshToken })
+      .then(({ data }) => data.data)
+      .finally(() => { refreshRequest = null; });
+  }
+  return refreshRequest;
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// 响应拦截：统一错误处理 + token 刷新
 api.interceptors.response.use(
-  (res) => res.data,
-  async (err) => {
-    const originalRequest = err.config;
+  (response) => response.data,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetryableRequest | undefined;
+    const isRefreshCall = originalRequest?.url?.includes('/auth/refresh');
 
-    // 401 时尝试刷新 token
-    if (err.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isRefreshCall) {
       originalRequest._retry = true;
       const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        redirectToLogin();
+        return Promise.reject(error.response.data ?? error);
+      }
 
-      if (refreshToken) {
-        try {
-          const res = await axios.post('/api/auth/refresh', { refreshToken });
-          const { token, refreshToken: newRefresh } = res.data.data;
-          localStorage.setItem('token', token);
-          localStorage.setItem('refreshToken', newRefresh);
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return api(originalRequest);
-        } catch {
-          // 刷新失败，清除登录态
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-        }
-      } else {
-        window.location.href = '/login';
+      try {
+        const tokens = await requestTokenRefresh(refreshToken);
+        localStorage.setItem('token', tokens.token);
+        localStorage.setItem('refreshToken', tokens.refreshToken);
+        originalRequest.headers.Authorization = `Bearer ${tokens.token}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        redirectToLogin();
+        return Promise.reject(refreshError);
       }
     }
 
-    return Promise.reject(err.response?.data || err);
-  }
+    return Promise.reject(error.response?.data ?? error);
+  },
 );
 
-/**
- * 将 Date 转为 NaiveDateTime 兼容的 ISO 字符串（去掉 Z 后缀）。
- * 后端 chrono::NaiveDateTime 不接受时区后缀。
- */
-export const toNaiveIso = (d: Date): string => d.toISOString().replace('Z', '');
+export function getApiErrorMessage(error: unknown, fallback = '操作失败，请稍后重试'): string {
+  if (typeof error === 'object' && error !== null) {
+    const candidate = error as { error?: unknown; message?: unknown };
+    if (typeof candidate.error === 'string' && candidate.error.trim()) return candidate.error;
+    if (typeof candidate.message === 'string' && candidate.message.trim() && candidate.message !== 'Network Error') {
+      return candidate.message;
+    }
+  }
+  return fallback;
+}
+
+/** Serialize a local Date for chrono::NaiveDateTime without an accidental UTC shift. */
+export function toNaiveIso(date: Date): string {
+  const pad = (value: number) => value.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
 
 export default api;

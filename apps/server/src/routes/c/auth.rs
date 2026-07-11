@@ -60,7 +60,11 @@ fn generate_refresh_token(user_id: &str, secret: &str) -> Result<String, AppErro
     .map_err(|e| AppError::Internal(format!("Failed to generate refresh token: {}", e)))
 }
 
-fn generate_token_pair(user_id: &str, config: &crate::config::Config) -> Result<(String, String), AppError> {
+/// Convenience wrapper that produces both tokens at once.
+fn generate_token_pair(
+    user_id: &str,
+    config: &crate::config::Config,
+) -> Result<(String, String), AppError> {
     let token = generate_access_token(user_id, &config.jwt_secret)?;
     let refresh_token = generate_refresh_token(user_id, &config.jwt_refresh_secret)?;
     Ok((token, refresh_token))
@@ -107,13 +111,12 @@ async fn register(
     }
 
     if body.password.len() < 6 {
-        return Err(AppError::BadRequest(
-            "密码至少 6 位".into(),
-        ));
+        return Err(AppError::BadRequest("密码至少 6 位".into()));
     }
 
     // Nickname defaults to username if not provided
-    let nickname = body.nickname
+    let nickname = body
+        .nickname
         .as_deref()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
@@ -177,12 +180,10 @@ async fn login(
     }
 
     // Look up user by username or phone
-    let user = sqlx::query_as::<_, User>(
-        sqlx::AssertSqlSafe(format!(
-            r#"SELECT {} FROM "User" WHERE username = $1 OR (phone = $1 AND phone <> '')"#,
-            USER_COLS
-        )),
-    )
+    let user = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(format!(
+        r#"SELECT {} FROM "User" WHERE username = $1 OR (phone = $1 AND phone <> '')"#,
+        USER_COLS
+    )))
     .bind(account)
     .fetch_optional(&state.pool)
     .await?
@@ -215,15 +216,15 @@ async fn refresh(
     let validation = Validation::default();
     let key = DecodingKey::from_secret(state.config.jwt_refresh_secret.as_bytes());
 
-    let token_data = decode::<UserClaims>(&body.refresh_token, &key, &validation).map_err(|e| {
-        AppError::Unauthorized(format!("Invalid or expired refresh token: {}", e))
-    })?;
+    let token_data = decode::<UserClaims>(&body.refresh_token, &key, &validation)
+        .map_err(|e| AppError::Unauthorized(format!("Invalid or expired refresh token: {}", e)))?;
 
     let user_id = &token_data.claims.user_id;
 
-    let user = sqlx::query_as::<_, User>(
-        sqlx::AssertSqlSafe(format!(r#"SELECT {} FROM "User" WHERE id = $1"#, USER_COLS)),
-    )
+    let user = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(format!(
+        r#"SELECT {} FROM "User" WHERE id = $1"#,
+        USER_COLS
+    )))
     .bind(user_id)
     .fetch_optional(&state.pool)
     .await?
@@ -248,9 +249,10 @@ async fn me(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user = sqlx::query_as::<_, User>(
-        sqlx::AssertSqlSafe(format!(r#"SELECT {} FROM "User" WHERE id = $1"#, USER_COLS)),
-    )
+    let user = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(format!(
+        r#"SELECT {} FROM "User" WHERE id = $1"#,
+        USER_COLS
+    )))
     .bind(&auth.user_id)
     .fetch_optional(&state.pool)
     .await?

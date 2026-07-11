@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '@/lib/api';
-import ReactECharts from 'echarts-for-react';
 import ShareModal from '@/components/ShareModal';
 
 interface OverviewStats {
@@ -46,6 +45,11 @@ function getHeatColor(distance: number, max: number): string {
   return '#196128';
 }
 
+function localDateKey(date: Date): string {
+  const pad = (value: number) => value.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function CalendarHeatmap({ days, year }: { days: CalendarDay[]; year: number }) {
   const dayMap = useMemo(() => {
     const m = new Map<string, CalendarDay>();
@@ -70,7 +74,7 @@ function CalendarHeatmap({ days, year }: { days: CalendarDay[]; year: number }) 
     let weekIdx = 0;
     const cursor = new Date(gridStart);
     while (cursor <= end || cursor.getDay() !== 1) {
-      const dateStr = cursor.toISOString().slice(0, 10);
+      const dateStr = localDateKey(cursor);
       const dow = cursor.getDay();
       const inYear = cursor.getFullYear() === year;
       const dayData = dayMap.get(dateStr);
@@ -158,11 +162,9 @@ function CalendarHeatmap({ days, year }: { days: CalendarDay[]; year: number }) 
       {/* Legend */}
       <div className="flex items-center justify-end gap-1 mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
         <span>少</span>
-        <rect width={10} height={10} rx={2} fill="var(--color-bg-secondary)" style={{ display: 'inline-block' }} />
-        <rect width={10} height={10} rx={2} fill="#c6e48b" style={{ display: 'inline-block' }} />
-        <rect width={10} height={10} rx={2} fill="#7ac74f" style={{ display: 'inline-block' }} />
-        <rect width={10} height={10} rx={2} fill="#3da639" style={{ display: 'inline-block' }} />
-        <rect width={10} height={10} rx={2} fill="#196128" style={{ display: 'inline-block' }} />
+        {['var(--color-bg-secondary)', '#c6e48b', '#7ac74f', '#3da639', '#196128'].map((color) => (
+          <span key={color} className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
+        ))}
         <span>多</span>
       </div>
     </div>
@@ -171,6 +173,27 @@ function CalendarHeatmap({ days, year }: { days: CalendarDay[]; year: number }) 
 
 /* ── Pace Trend Chart ── */
 function PaceTrendChart({ points }: { points: PaceTrendPoint[] }) {
+  const chart = useMemo(() => {
+    const width = 360;
+    const height = 185;
+    const left = 38;
+    const right = 12;
+    const top = 14;
+    const bottom = 28;
+    const values = points.map((point) => point.avgPace);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = Math.max(max - min, 0.5);
+    const coords = points.map((point, index) => ({
+      point,
+      x: left + (index / Math.max(points.length - 1, 1)) * (width - left - right),
+      y: top + ((point.avgPace - min) / range) * (height - top - bottom),
+    }));
+    const line = coords.map(({ x, y }, index) => `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+    const area = coords.length ? `${line} L ${coords.at(-1)!.x} ${height - bottom} L ${coords[0].x} ${height - bottom} Z` : '';
+    return { width, height, left, right, top, bottom, min, range, coords, line, area };
+  }, [points]);
+
   if (points.length < 2) {
     return (
       <div className="h-40 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
@@ -181,66 +204,30 @@ function PaceTrendChart({ points }: { points: PaceTrendPoint[] }) {
     );
   }
 
-  const option = useMemo(() => ({
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: any) => {
-        const p = params[0];
-        const pace = p.value as number;
-        const m = Math.floor(pace);
-        const s = Math.round((pace - m) * 60);
-        const pt = points[p.dataIndex];
-        return `${p.name}<br/>配速 ${m}:${s.toString().padStart(2, '0')} /km<br/>距离 ${pt.distance.toFixed(1)} km`;
-      },
-    },
-    grid: { left: 40, right: 16, top: 16, bottom: 32 },
-    xAxis: {
-      type: 'category',
-      data: points.map((p) => p.date.slice(5)), // MM-DD
-      axisLabel: { fontSize: 10, rotate: 45 },
-      axisTick: { show: false },
-      axisLine: { lineStyle: { color: '#e5e7eb' } },
-    },
-    yAxis: {
-      type: 'value',
-      inverse: true, // lower pace = better, show at top
-      axisLabel: {
-        fontSize: 10,
-        formatter: (v: number) => {
-          const m = Math.floor(v);
-          const s = Math.round((v - m) * 60);
-          return `${m}:${s.toString().padStart(2, '0')}`;
-        },
-      },
-      splitLine: { lineStyle: { color: '#f3f4f6' } },
-    },
-    series: [{
-      type: 'line',
-      data: points.map((p) => p.avgPace),
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: 6,
-      lineStyle: { color: '#6366f1', width: 2 },
-      itemStyle: { color: '#6366f1' },
-      areaStyle: {
-        color: {
-          type: 'linear',
-          x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [
-            { offset: 0, color: 'rgba(99,102,241,0.25)' },
-            { offset: 1, color: 'rgba(99,102,241,0.02)' },
-          ],
-        },
-      },
-    }],
-  }), [points]);
-
   return (
-    <ReactECharts
-      option={option}
-      style={{ height: 200 }}
-      opts={{ renderer: 'svg' }}
-    />
+    <div className="pace-chart">
+      <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label="最近跑步配速趋势">
+        <defs>
+          <linearGradient id="paceArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--color-accent-secondary)" stopOpacity=".28" />
+            <stop offset="1" stopColor="var(--color-accent-secondary)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0, 0.5, 1].map((ratio) => {
+          const y = chart.top + ratio * (chart.height - chart.top - chart.bottom);
+          return <g key={ratio}><line x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} className="pace-chart__grid" />
+            <text x="0" y={y + 3} className="pace-chart__label">{fmtPace(chart.min + ratio * chart.range)}</text></g>;
+        })}
+        <path d={chart.area} fill="url(#paceArea)" />
+        <path d={chart.line} className="pace-chart__line" />
+        {chart.coords.map(({ point, x, y }, index) => (
+          <g key={point.id}>
+            <circle cx={x} cy={y} r="4" className="pace-chart__dot"><title>{point.date} · {fmtPace(point.avgPace)} /km · {point.distance.toFixed(1)} km</title></circle>
+            {(index === 0 || index === chart.coords.length - 1) && <text x={x} y={chart.height - 6} textAnchor={index === 0 ? 'start' : 'end'} className="pace-chart__date">{point.date.slice(5)}</text>}
+          </g>
+        ))}
+      </svg>
+    </div>
   );
 }
 

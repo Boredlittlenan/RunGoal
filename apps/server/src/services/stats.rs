@@ -34,10 +34,7 @@ struct RunRow {
     weather: Option<String>,
 }
 
-pub async fn compute_user_stats(
-    pool: &sqlx::PgPool,
-    user_id: &str,
-) -> Result<UserStats, AppError> {
+pub async fn compute_user_stats(pool: &sqlx::PgPool, user_id: &str) -> Result<UserStats, AppError> {
     let rows = sqlx::query_as::<_, RunRow>(
         r#"SELECT distance, duration, "avgPace", "startedAt", weather
            FROM "Run" WHERE "userId" = $1 AND "archivedAt" IS NULL ORDER BY "startedAt" ASC"#,
@@ -132,7 +129,11 @@ pub async fn compute_user_stats(
             // Check if current week is exactly 1 week after previous
             let prev_weeks = py * 52 + pw as i32;
             let curr_weeks = cy * 52 + cw as i32;
-            cur_consec = if curr_weeks - prev_weeks == 1 { cur_consec + 1 } else { 1 };
+            cur_consec = if curr_weeks - prev_weeks == 1 {
+                cur_consec + 1
+            } else {
+                1
+            };
         }
         max_consec = max_consec.max(cur_consec);
     }

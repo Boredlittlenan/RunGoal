@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage, toNaiveIso } from '@/lib/api';
 import ShareModal from '@/components/ShareModal';
 
 type Tab = 'achievements' | 'challenges';
@@ -16,12 +16,14 @@ interface Achievement {
 
 interface Challenge {
   id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'completed' | 'expired';
-  deadline?: string;
-  progress?: number;   // 0-100
-  target?: string;
+  title: string;
+  type: string;
+  targetValue: number;
+  unit: string;
+  status: 'active' | 'completed' | 'failed';
+  startDate: string;
+  endDate: string;
+  progress: number;
 }
 
 const CATEGORY_META: Record<string, { label: string; icon: string }> = {
@@ -42,8 +44,20 @@ const RARITY_META: Record<string, { label: string; color: string }> = {
 const CHALLENGE_STATUS: Record<string, { label: string; color: string }> = {
   active:    { label: '进行中', color: '#10b981' },
   completed: { label: '已完成', color: '#3b82f6' },
-  expired:   { label: '已过期', color: '#9ca3af' },
+  failed:    { label: '未完成', color: '#9ca3af' },
 };
+
+const CHALLENGE_TYPE: Record<string, string> = {
+  cumulative: '累计挑战',
+  consecutive: '连续挑战',
+  single_breakthrough: '单次突破',
+};
+
+function defaultEndDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
 
 function MedalIcon({ unlocked }: { unlocked: boolean }) {
   return (
@@ -80,6 +94,12 @@ export default function AchievementsPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loadingCh, setLoadingCh] = useState(false);
   const [chFetched, setChFetched] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [savingChallenge, setSavingChallenge] = useState(false);
+  const [challengeForm, setChallengeForm] = useState({
+    title: '', type: 'cumulative', targetValue: '50', unit: 'km', endDate: defaultEndDate(),
+  });
 
   // Fetch achievements on mount
   useEffect(() => {
@@ -111,6 +131,44 @@ export default function AchievementsPage() {
       }
     })();
   }, [tab, chFetched]);
+
+  const createChallenge = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const targetValue = Number(challengeForm.targetValue);
+    if (!challengeForm.title.trim() || targetValue <= 0) {
+      setCreateError('请填写挑战名称和有效目标');
+      return;
+    }
+    setSavingChallenge(true);
+    setCreateError('');
+    try {
+      const response = await api.post('/challenges', {
+        title: challengeForm.title.trim(),
+        type: challengeForm.type,
+        targetValue,
+        unit: challengeForm.unit,
+        startDate: toNaiveIso(new Date()),
+        endDate: `${challengeForm.endDate}T23:59:59`,
+      }) as unknown as { data: Challenge };
+      setChallenges((items) => [response.data, ...items]);
+      setChallengeForm({ title: '', type: 'cumulative', targetValue: '50', unit: 'km', endDate: defaultEndDate() });
+      setCreating(false);
+    } catch (error) {
+      setCreateError(getApiErrorMessage(error));
+    } finally {
+      setSavingChallenge(false);
+    }
+  };
+
+  const abandonChallenge = async (id: string) => {
+    if (!confirm('确认结束这个挑战？')) return;
+    try {
+      const response = await api.post(`/challenges/${id}/abandon`) as unknown as { data: Challenge };
+      setChallenges((items) => items.map((item) => item.id === id ? response.data : item));
+    } catch (error) {
+      alert(getApiErrorMessage(error));
+    }
+  };
 
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
   const totalCount = achievements.length;
@@ -232,10 +290,38 @@ export default function AchievementsPage() {
         <div className="space-y-4">
           <button
             className="btn-primary w-full"
-            onClick={() => alert('功能开发中')}
+            onClick={() => { setCreating((value) => !value); setCreateError(''); }}
           >
-            + 发起新挑战
+            {creating ? '收起创建表单' : '+ 发起新挑战'}
           </button>
+
+          {creating && (
+            <form onSubmit={createChallenge} className="card space-y-3">
+              <div><label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>挑战名称</label>
+                <input className="input mt-1" placeholder="例如：30 天累计跑 50 km" value={challengeForm.title}
+                  onChange={(event) => setChallengeForm({ ...challengeForm, title: event.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>挑战类型</label>
+                  <select className="input mt-1" value={challengeForm.type} onChange={(event) => setChallengeForm({ ...challengeForm, type: event.target.value })}>
+                    {Object.entries(CHALLENGE_TYPE).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select></div>
+                <div><label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>目标数值</label>
+                  <input type="number" min="0.1" step="0.1" className="input mt-1" value={challengeForm.targetValue}
+                    onChange={(event) => setChallengeForm({ ...challengeForm, targetValue: event.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>单位</label>
+                  <select className="input mt-1" value={challengeForm.unit} onChange={(event) => setChallengeForm({ ...challengeForm, unit: event.target.value })}>
+                    <option value="km">公里</option><option value="times">次数</option><option value="days">天</option>
+                  </select></div>
+                <div><label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>结束日期</label>
+                  <input type="date" className="input mt-1" min={new Date().toISOString().slice(0, 10)} value={challengeForm.endDate}
+                    onChange={(event) => setChallengeForm({ ...challengeForm, endDate: event.target.value })} /></div>
+              </div>
+              {createError && <div className="form-alert" role="alert">{createError}</div>}
+              <button className="btn-primary w-full" disabled={savingChallenge}>{savingChallenge ? '创建中…' : '创建挑战'}</button>
+            </form>
+          )}
 
           {loadingCh ? (
             <div className="card text-center py-16" style={{ color: 'var(--color-text-secondary)' }}>
@@ -250,22 +336,21 @@ export default function AchievementsPage() {
             <div className="space-y-3">
               {challenges.map((ch) => {
                 const status = CHALLENGE_STATUS[ch.status] ?? CHALLENGE_STATUS.active;
+                const progressPct = Math.min(Math.max(ch.progress / Math.max(ch.targetValue, 1) * 100, 0), 100);
                 return (
                   <div key={ch.id} className="card">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold">{ch.name}</p>
+                        <p className="text-sm font-semibold">{ch.title}</p>
                         <p
                           className="text-xs mt-0.5"
                           style={{ color: 'var(--color-text-secondary)' }}
                         >
-                          {ch.description}
+                          {CHALLENGE_TYPE[ch.type] ?? ch.type} · 目标 {ch.targetValue} {ch.unit}
                         </p>
-                        {ch.deadline && (
-                          <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                            截止：{new Date(ch.deadline).toLocaleDateString()}
-                          </p>
-                        )}
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                          截止：{new Date(ch.endDate).toLocaleDateString()}
+                        </p>
                       </div>
                       <span
                         className="text-xs font-medium shrink-0 px-1.5 py-0.5 rounded"
@@ -274,8 +359,7 @@ export default function AchievementsPage() {
                         {status.label}
                       </span>
                     </div>
-                    {ch.progress !== undefined && ch.progress !== null && (
-                      <div className="mt-3">
+                    <div className="mt-3">
                         <div
                           className="h-1.5 rounded-full overflow-hidden"
                           style={{ backgroundColor: 'var(--color-bg-secondary)' }}
@@ -283,7 +367,7 @@ export default function AchievementsPage() {
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
-                              width: `${ch.progress}%`,
+                              width: `${progressPct}%`,
                               backgroundColor: 'var(--color-accent)',
                             }}
                           />
@@ -292,10 +376,10 @@ export default function AchievementsPage() {
                           className="text-xs mt-1 text-right"
                           style={{ color: 'var(--color-text-secondary)' }}
                         >
-                          {ch.progress}%{ch.target ? ` · ${ch.target}` : ''}
+                          {ch.progress.toFixed(1)} / {ch.targetValue} {ch.unit} · {progressPct.toFixed(0)}%
                         </p>
-                      </div>
-                    )}
+                      {ch.status === 'active' && <button className="text-xs mt-2" style={{ color: 'var(--color-text-secondary)' }} onClick={() => abandonChallenge(ch.id)}>结束挑战</button>}
+                    </div>
                   </div>
                 );
               })}

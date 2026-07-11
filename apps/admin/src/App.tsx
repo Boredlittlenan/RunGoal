@@ -1,18 +1,22 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Spin } from 'antd';
 import AdminLayout from './components/AdminLayout';
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import UsersPage from './pages/UsersPage';
-import UserDetailPage from './pages/UserDetailPage';
-import RunsPage from './pages/RunsPage';
-import RunDetailPage from './pages/RunDetailPage';
-import AchievementsPage from './pages/AchievementsPage';
-import GoalsPage from './pages/GoalsPage';
-import ChallengesPage from './pages/ChallengesPage';
+
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
+const UserDetailPage = lazy(() => import('./pages/UserDetailPage'));
+const RunsPage = lazy(() => import('./pages/RunsPage'));
+const RunDetailPage = lazy(() => import('./pages/RunDetailPage'));
+const AchievementsPage = lazy(() => import('./pages/AchievementsPage'));
+const GoalsPage = lazy(() => import('./pages/GoalsPage'));
+const ChallengesPage = lazy(() => import('./pages/ChallengesPage'));
 
 export default function App() {
   return (
-    <Routes>
+    <Suspense fallback={<div className="admin-route-loader"><Spin size="large" /></div>}>
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AdminLayout />}>
         <Route path="/" element={<DashboardPage />} />
@@ -25,6 +29,7 @@ export default function App() {
         <Route path="/challenges" element={<ChallengesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

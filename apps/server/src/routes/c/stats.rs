@@ -89,7 +89,13 @@ async fn calendar(
     auth: AuthUser,
     Query(query): Query<CalendarQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let year = query.year.unwrap_or_else(|| chrono::Utc::now().format("%Y").to_string().parse().unwrap_or(2026));
+    let year = query.year.unwrap_or_else(|| {
+        chrono::Utc::now()
+            .format("%Y")
+            .to_string()
+            .parse()
+            .unwrap_or(2026)
+    });
 
     let rows: Vec<(chrono::NaiveDate, f64, i64, i64)> = sqlx::query_as(
         r#"
@@ -292,7 +298,9 @@ async fn period_stats(
     let (start, end, label) = match period_type {
         "day" => {
             let s = ref_date.and_hms_opt(0, 0, 0).unwrap();
-            let e = (ref_date + chrono::Duration::days(1)).and_hms_opt(0, 0, 0).unwrap();
+            let e = (ref_date + chrono::Duration::days(1))
+                .and_hms_opt(0, 0, 0)
+                .unwrap();
             (s, e, ref_date.format("%Y年%m月%d日").to_string())
         }
         "week" => {
@@ -301,10 +309,15 @@ async fn period_stats(
             let week_end = week_start + chrono::Duration::days(7);
             let s = week_start.and_hms_opt(0, 0, 0).unwrap();
             let e = week_end.and_hms_opt(0, 0, 0).unwrap();
-            (s, e, format!("{}年 第{}周", week_start.year(), ref_date.iso_week().week()))
+            (
+                s,
+                e,
+                format!("{}年 第{}周", week_start.year(), ref_date.iso_week().week()),
+            )
         }
         "month" => {
-            let month_start = NaiveDate::from_ymd_opt(ref_date.year(), ref_date.month(), 1).unwrap();
+            let month_start =
+                NaiveDate::from_ymd_opt(ref_date.year(), ref_date.month(), 1).unwrap();
             let next_month = if ref_date.month() == 12 {
                 NaiveDate::from_ymd_opt(ref_date.year() + 1, 1, 1).unwrap()
             } else {
@@ -346,7 +359,11 @@ async fn period_stats(
     .fetch_one(&state.pool).await?;
 
     let (total_distance, total_duration, total_runs) = agg;
-    let avg_pace = if total_distance > 0.0 { Some((total_duration as f64)/60.0/total_distance) } else { None };
+    let avg_pace = if total_distance > 0.0 {
+        Some((total_duration as f64) / 60.0 / total_distance)
+    } else {
+        None
+    };
 
     let best_pace: Option<f64> = sqlx::query_scalar(
         r#"SELECT MIN("avgPace") FROM "Run" WHERE "userId"=$1 AND "archivedAt" IS NULL AND "startedAt">=$2 AND "startedAt"<$3 AND distance>=3.0 AND "avgPace" IS NOT NULL"#,

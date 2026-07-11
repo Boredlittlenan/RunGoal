@@ -305,8 +305,7 @@ async fn detail(
     .fetch_all(&state.pool);
 
     let (runs, goals, achievements, challenges) =
-        tokio::try_join!(runs_fut, goals_fut, achievements_fut, challenges_fut)
-            .unwrap_or_default();
+        tokio::try_join!(runs_fut, goals_fut, achievements_fut, challenges_fut).unwrap_or_default();
 
     Json(json!({
         "success": true,

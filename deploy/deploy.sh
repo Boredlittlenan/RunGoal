@@ -125,15 +125,22 @@ if [ ! -f "$APP_DIR/apps/server/.env" ]; then
   JWT_SECRET=$(openssl rand -hex 32)
   JWT_REFRESH_SECRET=$(openssl rand -hex 32)
   ADMIN_JWT_SECRET=$(openssl rand -hex 32)
+  ADMIN_SEED_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=')
 
   cat > "$APP_DIR/apps/server/.env" << EOF
-# ─── 数据库 ───
+# ─── 运行环境与数据库 ───
+APP_ENV=production
 DATABASE_URL="postgresql://postgres:your_password@127.0.0.1:5432/rungoal"
 
 # ─── JWT 密钥（已自动生成随机值） ───
 JWT_SECRET="${JWT_SECRET}"
 JWT_REFRESH_SECRET="${JWT_REFRESH_SECRET}"
 ADMIN_JWT_SECRET="${ADMIN_JWT_SECRET}"
+
+# ─── Web 来源与首次管理员 ───
+CORS_ORIGINS="https://your-domain.example"
+ADMIN_SEED_USERNAME="admin"
+ADMIN_SEED_PASSWORD="${ADMIN_SEED_PASSWORD}"
 
 # ─── 服务端口 ───
 PORT=3000
@@ -144,9 +151,11 @@ EOF
   echo "  vi $APP_DIR/apps/server/.env"
   echo ""
   echo "  修改 DATABASE_URL 为服务器上 PostgreSQL 的真实连接信息"
+  echo "  修改 CORS_ORIGINS 为实际 HTTPS 站点地址"
   echo "  格式：postgresql://用户名:密码@127.0.0.1:5432/数据库名"
   echo ""
   echo "  如果还没创建 rungoal 数据库，请在 1Panel 数据库管理中创建"
+  echo "  首次管理员：admin / ${ADMIN_SEED_PASSWORD}（首次登录后请修改并从 .env 删除 seed 配置）"
   echo ""
   echo "  编辑完成后重新运行：sudo bash deploy/deploy.sh update"
   exit 1
